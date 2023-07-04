@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr-FR">
+
+<head>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <title>Mise en ligne de contenue</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.11.6/ffmpeg.min.js" async></script>
+    <script src="/js/upload.js" async></script>
+</head>
+
+<body>
+    <div id="thumbnail_container">
+        <img src="" alt="The video thumbnail" id="thumbnail">
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker">
+    </div>
+    <div id="video_container">
+        <video src="" id="video"></video>
+        <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker">
+        <div id="video_controls">
+            <input type="button" id="video_play_button">
+            <input type="range" id="video_volume_slider">
+            <input type="range" id="video_duration_slider">
+            <p id="video_duration">0:00 / 0:00</p>
+        </div>
+    </div>
+    <button>Transcoder et télécharger la vidéo</button>
+</body>
+
+</html>
