@@ -17,11 +17,6 @@ async fn main() -> io::Result<()> {
         App::new()
             .wrap(cors)
             .wrap(middleware::Compress::default())
-            .wrap(
-                middleware::DefaultHeaders::new()
-                    .add(("Cross-Origin-Embedder-Policy", "require-corp"))
-                    .add(("Cross-Origin-Opener-Policy", "same-origin")),
-            )
             .service(Files::new("/", "./static/").index_file("html/index.html"))
     })
     .bind_rustls("127.0.0.1:8080", load_rustls_config()?)?
