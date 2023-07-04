@@ -22,7 +22,7 @@ async fn main() -> io::Result<()> {
                     .add(("Cross-Origin-Embedder-Policy", "require-corp"))
                     .add(("Cross-Origin-Opener-Policy", "same-origin")),
             )
-            .service(Files::new("/", "./static/").index_file("index.html"))
+            .service(Files::new("/", "./static/").index_file("html/index.html"))
     })
     .bind_rustls("127.0.0.1:8080", load_rustls_config()?)?
     .run()
