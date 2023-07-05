@@ -11,21 +11,28 @@
 </head>
 
 <body>
-    <div id="thumbnail_container">
-        <img src="" alt="The video thumbnail" id="thumbnail">
-        <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker">
-    </div>
-    <div id="video_container">
-        <video src="" id="video"></video>
-        <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker">
-        <div id="video_controls">
-            <input type="button" id="video_play_button">
-            <input type="range" id="video_volume_slider">
-            <input type="range" id="video_duration_slider">
-            <p id="video_duration">0:00 / 0:00</p>
+    <form action="" method="post">
+        <div id="thumbnail_container">
+            <img src="" alt="The video thumbnail" width="640" height="360" id="thumbnail">
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" name="thumbnail"
+                id="thumbnail_filepicker">
         </div>
-    </div>
-    <button>Transcoder et télécharger la vidéo</button>
+        <div id="video_container">
+            <video src="" width="640" height="360" id="video"></video>
+            <input type="file" accept="video/ogg,video/webm,video/mp4" name="video" id="video_filepicker">
+            <span>
+                <span id="video_width">0</span>x<span id="video_height">0</span> <span id="video_framerate">0</span>fps
+                <span id="video_bitrate">0</span>Mb/s
+            </span>
+            <div id="video_controls">
+                <input type="button" id="video_play_button">
+                <input type="range" min="0" max="1" step="0.1" id="video_volume_slider">
+                <input type="range" min="0" id="video_duration_slider">
+                <span id="video_timespan">0:00</span> / <span id="video_duration">0:00</span>
+            </div>
+        </div>
+        <input type="submit" value="Transcoder et télécharger la vidéo">
+    </form>
 </body>
 
 </html>
