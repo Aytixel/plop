@@ -15,12 +15,8 @@ const video_duration_slider_element = document.getElementById("video_duration_sl
 const video_width_element = document.getElementById("video_width")
 const video_height_element = document.getElementById("video_height")
 const video_framerate_element = document.getElementById("video_framerate")
-const video_bitrate_element = document.getElementById("video_bitrate")
 const video_duration_element = document.getElementById("video_duration")
 const video_timespan_element = document.getElementById("video_timespan")
-
-let video_settings
-let video_bitrate
 
 function duration_to_string(duration) {
     const string = `${Math.floor(duration / 60 % 60)}:${(Math.round(duration) % 60).toString().padStart(2, 0)}`
@@ -31,6 +27,94 @@ function duration_to_string(duration) {
     return string
 }
 
+const encode_video = (url, width, height, framerate) => new Promise(resolve => {
+    const canvas = document.createElement("canvas")
+    const canvas_context = canvas.getContext("2d")
+
+    canvas.width = width
+    canvas.height = height
+
+    const video = document.createElement("video")
+    const update_canvas = () => {
+        canvas_context.drawImage(video, 0, 0, width, height)
+        video.requestVideoFrameCallback(update_canvas)
+    }
+
+    video.requestVideoFrameCallback(update_canvas)
+    video.src = url
+    video.onloadedmetadata = async () => {
+        const audio_track = video.captureStream().getAudioTracks()[0]
+        const video_stream = canvas.captureStream(framerate)
+
+        if (audio_track)
+            video_stream.addTrack(audio_track)
+
+        const recorder = new MediaRecorder(video_stream, {
+            audioBitsPerSecond: 128000,
+            videoBitsPerSecond: width * height * framerate * 0.3,
+            mimeType: 'video/webm;codecs="vp8,opus"'
+        })
+
+        recorder.ondataavailable = e => resolve(URL.createObjectURL(e.data))
+        video.onended = () => recorder.stop()
+        video.onplay = () => recorder.start()
+        video.play()
+    }
+})
+
+const encode_multiple_video = (url, encode_options_list) => new Promise(resolve => {
+    const canvas_list = encode_options_list.map(encode_options => {
+        const canvas = document.createElement("canvas")
+
+        canvas.width = encode_options.width
+        canvas.height = encode_options.height
+
+        return {
+            canvas,
+            canvas_context: canvas.getContext("2d")
+        }
+    })
+    const video = document.createElement("video")
+    const update_canvas = () => {
+        for (const canvas of canvas_list) {
+            canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
+        }
+
+        video.requestVideoFrameCallback(update_canvas)
+    }
+
+    video.requestVideoFrameCallback(update_canvas)
+    video.src = url
+    video.onloadedmetadata = () => {
+        const audio_track = video.captureStream().getAudioTracks()[0]
+        let encoded_video_count = 0
+
+        for (const key in canvas_list) {
+            const video_stream = canvas_list[key].canvas.captureStream(encode_options_list[key].framerate)
+
+            if (audio_track)
+                video_stream.addTrack(audio_track)
+
+            const recorder = new MediaRecorder(video_stream, {
+                audioBitsPerSecond: 128000,
+                videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * 0.3,
+                mimeType: 'video/webm;codecs="vp8,opus"'
+            })
+
+            recorder.ondataavailable = e => {
+                encode_options_list[key].url = URL.createObjectURL(e.data)
+
+                if (++encoded_video_count == encode_options_list.length)
+                    resolve(encode_options_list)
+            }
+            video.addEventListener("ended", () => recorder.stop())
+            video.addEventListener("play", () => recorder.start())
+        }
+
+        video.play()
+    }
+})
+
 video_element.addEventListener("volumechange", () => video_volume_slider_element.value = video_element.volume)
 video_element.addEventListener("timeupdate", () => {
     video_timespan_element.textContent = duration_to_string(video_element.currentTime)
@@ -38,13 +122,11 @@ video_element.addEventListener("timeupdate", () => {
     video_duration_slider_element.value = video_element.currentTime
 })
 video_element.addEventListener("loadedmetadata", () => {
-    video_settings = video_element.captureStream().getVideoTracks()[0].getSettings()
-    video_bitrate = video_settings.width * video_settings.height * video_settings.frameRate * 0.000000113
+    const video_settings = video_element.captureStream().getVideoTracks()[0].getSettings()
 
     video_width_element.textContent = video_settings.width
     video_height_element.textContent = video_settings.height
     video_framerate_element.textContent = video_settings.frameRate
-    video_bitrate_element.textContent = video_bitrate
     video_duration_element.textContent = duration_to_string(video_element.duration)
 
     video_duration_slider_element.max = video_element.duration
