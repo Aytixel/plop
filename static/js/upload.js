@@ -27,6 +27,33 @@ function duration_to_string(duration) {
     return string
 }
 
+function get_video_encode_options_list(width, height, framerate) {
+    const aspect_ratio = width / height
+
+    return [
+        { resolution: 144, framerate: 24 },
+        { resolution: 240, framerate: 24 },
+        { resolution: 360, framerate: 30 },
+        { resolution: 480, framerate: 30 },
+        { resolution: 720, framerate: 60 },
+        { resolution: 1080, framerate: 60 },
+        { resolution: 1440, framerate: 60 },
+    ].map(encode_options => {
+        if (framerate < encode_options.framerate)
+            encode_options.framerate = framerate
+
+        if (aspect_ratio > 1) {
+            encode_options.width = Math.round(encode_options.resolution * aspect_ratio)
+            encode_options.height = encode_options.resolution
+        } else {
+            encode_options.width = encode_options.resolution
+            encode_options.height = Math.round(encode_options.resolution / aspect_ratio)
+        }
+
+        return encode_options
+    }).filter((encode_options, index) => index == 0 || encode_options.width <= width)
+}
+
 const encode_video = (url, width, height, framerate) => new Promise(resolve => {
     const canvas = document.createElement("canvas")
     const canvas_context = canvas.getContext("2d")
@@ -42,7 +69,7 @@ const encode_video = (url, width, height, framerate) => new Promise(resolve => {
 
     video.requestVideoFrameCallback(update_canvas)
     video.src = url
-    video.onloadedmetadata = async () => {
+    video.onloadedmetadata = () => {
         const audio_track = video.captureStream().getAudioTracks()[0]
         const video_stream = canvas.captureStream(framerate)
 
@@ -75,7 +102,8 @@ const encode_multiple_video = (url, encode_options_list) => new Promise(resolve 
         }
     })
     const video = document.createElement("video")
-    const update_canvas = () => {
+
+    function update_canvas() {
         for (const canvas of canvas_list) {
             canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
         }
@@ -145,8 +173,11 @@ video_volume_slider_element.addEventListener("input", () => video_element.volume
 video_duration_slider_element.addEventListener("input", () => video_element.currentTime = video_duration_slider_element.value)
 video_duration_slider_element.addEventListener("pointerdown", () => {
     const paused = video_element.paused
-    const move = () => video_element.pause()
-    const up = () => {
+
+    function move() {
+        video_element.pause()
+    }
+    function up() {
         if (!paused)
             video_element.play()
 
