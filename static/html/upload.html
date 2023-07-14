@@ -13,15 +13,19 @@
 </head>
 
 <body>
-    <form action="" method="post">
+    <form id="video_upload_form">
+        <div>
+            <input type="text" minlength="1" maxlength="100" name="title" required>
+            <input type="text" maxlength="5000" name="description">
+            <input type="text" maxlength="500" name="tags">
+        </div>
         <div id="thumbnail_container">
             <img src="" alt="The video thumbnail" width="640" height="360" id="thumbnail">
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" name="thumbnail"
-                id="thumbnail_filepicker">
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker">
         </div>
         <div id="video_container">
             <video src="" width="640" height="360" id="video"></video>
-            <input type="file" accept="video/ogg,video/webm,video/mp4" name="video" id="video_filepicker">
+            <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker">
             <span>
                 <span id="video_width">0</span>x<span id="video_height">0</span> <span id="video_framerate">0</span>fps
             </span>
@@ -33,8 +37,6 @@
             </div>
         </div>
         <input type="submit" value="Transcoder et télécharger la vidéo">
-
-        <video src="" width="640" height="360" id="test" controls></video>
     </form>
 </body>
 

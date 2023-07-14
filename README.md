@@ -9,3 +9,6 @@
 Cette *plateforme a pour but d'être la plus légère possible côté serveur,*
 pour cela **l'encodage** des différentes résolutions vidéos **est réalisé dans le navigateur** qui met en ligne la vidéo.
 
+## Commandes
+
+Génération automatique des entités pour SeaORM : `sea-orm-cli generate entity -o src/entity/ -u postgresql://<username>:<password>@<host>:<port>/<database_name>`

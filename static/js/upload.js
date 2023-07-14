@@ -1,6 +1,34 @@
 const thumbnail_element = document.getElementById("thumbnail")
 const thumbnail_filepicker_element = document.getElementById("thumbnail_filepicker")
 
+function encode_thumbnail(url) {
+    return new Promise(resolve => {
+        const canvas = document.createElement("canvas")
+        const canvas_context = canvas.getContext("2d")
+        const image = document.createElement("img")
+
+        image.src = url
+        image.onload = () => {
+            const aspect_ratio = image.naturalWidth / image.naturalHeight
+            let width
+            let height
+
+            if (aspect_ratio > 1) {
+                width = Math.round(480 * aspect_ratio)
+                height = 480
+            } else {
+                width = 480
+                height = Math.round(480 / aspect_ratio)
+            }
+
+            canvas.width = width
+            canvas.height = height
+            canvas_context.drawImage(image, 0, 0, width, height)
+            canvas.toBlob(blob => resolve(blob), "image/webp", 0.75)
+        }
+    })
+}
+
 thumbnail_filepicker_element.addEventListener("input", () => {
     if (thumbnail_filepicker_element.files.length > 0)
         thumbnail_element.src = URL.createObjectURL(thumbnail_filepicker_element.files[0])
@@ -54,94 +82,101 @@ function get_video_encode_options_list(width, height, framerate) {
     }).filter((encode_options, index) => index == 0 || encode_options.width <= width)
 }
 
-const encode_video = (url, width, height, framerate) => new Promise(resolve => {
-    const canvas = document.createElement("canvas")
-    const canvas_context = canvas.getContext("2d")
-
-    canvas.width = width
-    canvas.height = height
-
-    const video = document.createElement("video")
-    const update_canvas = () => {
-        canvas_context.drawImage(video, 0, 0, width, height)
-        video.requestVideoFrameCallback(update_canvas)
-    }
-
-    video.requestVideoFrameCallback(update_canvas)
-    video.src = url
-    video.onloadedmetadata = () => {
-        const audio_track = video.captureStream().getAudioTracks()[0]
-        const video_stream = canvas.captureStream(framerate)
-
-        if (audio_track)
-            video_stream.addTrack(audio_track)
-
-        const recorder = new MediaRecorder(video_stream, {
-            audioBitsPerSecond: 128000,
-            videoBitsPerSecond: width * height * framerate * 0.3,
-            mimeType: 'video/webm;codecs="vp8,opus"'
-        })
-
-        recorder.ondataavailable = e => resolve(URL.createObjectURL(e.data))
-        video.onended = () => recorder.stop()
-        video.onplay = () => recorder.start()
-        video.play()
-    }
-})
-
-const encode_multiple_video = (url, encode_options_list) => new Promise(resolve => {
-    const canvas_list = encode_options_list.map(encode_options => {
+function encode_video(url, width, height, framerate) {
+    return new Promise(resolve => {
         const canvas = document.createElement("canvas")
+        const canvas_context = canvas.getContext("2d")
 
-        canvas.width = encode_options.width
-        canvas.height = encode_options.height
+        canvas.width = width
+        canvas.height = height
 
-        return {
-            canvas,
-            canvas_context: canvas.getContext("2d")
-        }
-    })
-    const video = document.createElement("video")
-
-    function update_canvas() {
-        for (const canvas of canvas_list) {
-            canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
+        const video = document.createElement("video")
+        const update_canvas = () => {
+            canvas_context.drawImage(video, 0, 0, width, height)
+            video.requestVideoFrameCallback(update_canvas)
         }
 
         video.requestVideoFrameCallback(update_canvas)
-    }
-
-    video.requestVideoFrameCallback(update_canvas)
-    video.src = url
-    video.onloadedmetadata = () => {
-        const audio_track = video.captureStream().getAudioTracks()[0]
-        let encoded_video_count = 0
-
-        for (const key in canvas_list) {
-            const video_stream = canvas_list[key].canvas.captureStream(encode_options_list[key].framerate)
+        video.src = url
+        video.onloadedmetadata = () => {
+            const audio_track = video.captureStream().getAudioTracks()[0]
+            const video_stream = canvas.captureStream(framerate)
 
             if (audio_track)
                 video_stream.addTrack(audio_track)
 
             const recorder = new MediaRecorder(video_stream, {
                 audioBitsPerSecond: 128000,
-                videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * 0.3,
+                videoBitsPerSecond: width * height * framerate * 0.3,
                 mimeType: 'video/webm;codecs="vp8,opus"'
             })
 
-            recorder.ondataavailable = e => {
-                encode_options_list[key].url = URL.createObjectURL(e.data)
+            recorder.ondataavailable = e => resolve(e.data)
+            video.onended = () => recorder.stop()
+            video.onplay = () => recorder.start()
+            video.play()
+        }
+    })
+}
 
-                if (++encoded_video_count == encode_options_list.length)
-                    resolve(encode_options_list)
+function encode_multiple_video(url, encode_options_list) {
+    return new Promise(resolve => {
+        const canvas_list = encode_options_list.map(encode_options => {
+            const canvas = document.createElement("canvas")
+
+            canvas.width = encode_options.width
+            canvas.height = encode_options.height
+
+            return {
+                canvas,
+                canvas_context: canvas.getContext("2d")
             }
-            video.addEventListener("ended", () => recorder.stop())
-            video.addEventListener("play", () => recorder.start())
+        })
+        const video = document.createElement("video")
+
+        function update_canvas() {
+            for (const canvas of canvas_list) {
+                canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
+            }
+
+            video.requestVideoFrameCallback(update_canvas)
         }
 
-        video.play()
-    }
-})
+        video.requestVideoFrameCallback(update_canvas)
+        video.src = url
+        video.onloadedmetadata = () => {
+            const audio_track = video.captureStream().getAudioTracks()[0]
+            let encoded_video_count = 0
+
+            for (const key in canvas_list) {
+                const video_stream = canvas_list[key].canvas.captureStream(encode_options_list[key].framerate)
+
+                if (audio_track)
+                    video_stream.addTrack(audio_track)
+
+                const recorder = new MediaRecorder(video_stream, {
+                    audioBitsPerSecond: 128000,
+                    videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * 0.3,
+                    mimeType: "video/webm;codecs=\"vp8,opus\""
+                })
+
+                recorder.ondataavailable = e => {
+                    encode_options_list[key].url = e.data
+
+                    if (++encoded_video_count == encode_options_list.length)
+                        resolve(encode_options_list)
+                }
+                video.addEventListener("ended", () => recorder.stop())
+                video.addEventListener("play", () => recorder.start())
+            }
+
+            video.play()
+        }
+    })
+}
+
+let video_settings
+let video_duration
 
 video_element.addEventListener("volumechange", () => video_volume_slider_element.value = video_element.volume)
 video_element.addEventListener("timeupdate", () => {
@@ -150,7 +185,8 @@ video_element.addEventListener("timeupdate", () => {
     video_duration_slider_element.value = video_element.currentTime
 })
 video_element.addEventListener("loadedmetadata", () => {
-    const video_settings = video_element.captureStream().getVideoTracks()[0].getSettings()
+    video_settings = video_element.captureStream().getVideoTracks()[0].getSettings()
+    video_duration = video_element.duration
 
     video_width_element.textContent = video_settings.width
     video_height_element.textContent = video_settings.height
@@ -188,4 +224,35 @@ video_duration_slider_element.addEventListener("pointerdown", () => {
     video_element.pause()
     video_duration_slider_element.addEventListener("pointermove", move)
     video_duration_slider_element.addEventListener("pointerup", up)
+})
+
+const video_upload_form_element = document.getElementById("video_upload_form")
+let uploading_video = false
+
+video_upload_form_element.addEventListener("submit", async e => {
+    e.preventDefault()
+
+    if (uploading_video)
+        return;
+    else
+        uploading_video = true
+
+    const video_encode_options_list = get_video_encode_options_list(video_settings.width, video_settings.height, video_settings.frameRate)
+    const form_data = new FormData(video_upload_form_element)
+    const params = {
+        title: form_data.get("title"),
+        framerate: video_settings.frameRate,
+        duration: video_duration,
+        resolutions: video_encode_options_list.map(video_encode_option => video_encode_option.resolution)
+    };
+
+    if (form_data.get("description").length)
+        params.description = form_data.get("description")
+
+    if (form_data.get("tags").length)
+        params.tags = form_data.get("tags")
+
+    const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
+
+    console.log(video_uuid)
 })
