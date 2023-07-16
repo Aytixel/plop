@@ -21,7 +21,7 @@ pub struct AppState {
     redis_connection: MultiplexedConnection,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> io::Result<()> {
     dotenvy::dotenv().ok();
 
@@ -92,7 +92,7 @@ fn load_rustls_config() -> io::Result<ServerConfig> {
         ));
     }
 
-    Ok(config
+    config
         .with_single_cert(cert_chain, keys.remove(0))
-        .map_err(|error| Error::new(ErrorKind::InvalidData, error.to_string()))?)
+        .map_err(|error| Error::new(ErrorKind::InvalidData, error.to_string()))
 }

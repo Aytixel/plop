@@ -77,11 +77,11 @@ async fn get_video(params: Path<GetVideo>) -> actix_web::Result<impl Responder> 
 
 #[put("/video")]
 async fn put_video(
-    params: Json<PutVideo>,
+    payload: Json<PutVideo>,
     data: Data<AppState>,
 ) -> actix_web::Result<impl Responder> {
     let has_resolution = |resolution| {
-        if params.resolutions.contains(&resolution) {
+        if payload.resolutions.contains(&resolution) {
             VideoUploadState::Uploading
         } else {
             VideoUploadState::Unavailable
@@ -90,11 +90,11 @@ async fn put_video(
     let uuid = Uuid::new_v4();
     let video = video::ActiveModel {
         uuid: Set(uuid),
-        title: Set(params.title.clone()),
-        description: Set(params.description.clone()),
-        duration: Set(params.duration),
-        framerate: Set(params.framerate as i16),
-        tags: Set(params.tags.clone()),
+        title: Set(payload.title.clone()),
+        description: Set(payload.description.clone()),
+        duration: Set(payload.duration),
+        framerate: Set(payload.framerate as i16),
+        tags: Set(payload.tags.clone()),
         state_144p: Set(has_resolution(144)),
         state_240p: Set(has_resolution(240)),
         state_360p: Set(has_resolution(360)),
@@ -119,24 +119,23 @@ async fn post_video(
     mut payload: Payload,
     data: Data<AppState>,
 ) -> actix_web::Result<impl Responder> {
-    video::Entity::find_by_id(params.uuid)
-        .filter(
-            match params.resolution {
-                144 => video::Column::State144p,
-                240 => video::Column::State240p,
-                360 => video::Column::State360p,
-                480 => video::Column::State480p,
-                720 => video::Column::State720p,
-                1080 => video::Column::State1080p,
-                1440 => video::Column::State1440p,
-                _ => unreachable!("Wrong resolution"),
-            }
-            .eq(VideoUploadState::Uploading),
-        )
+    let resolution_column = match params.resolution {
+        144 => Ok(video::Column::State144p),
+        240 => Ok(video::Column::State240p),
+        360 => Ok(video::Column::State360p),
+        480 => Ok(video::Column::State480p),
+        720 => Ok(video::Column::State720p),
+        1080 => Ok(video::Column::State1080p),
+        1440 => Ok(video::Column::State1440p),
+        _ => Err(ErrorNotFound("Wrong resolution")),
+    }?;
+    let mut video: video::ActiveModel = video::Entity::find_by_id(params.uuid)
+        .filter(resolution_column.eq(VideoUploadState::Uploading))
         .one(&data.db_connection)
         .await
         .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
-        .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
+        .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?
+        .into();
 
     create_dir_all(format!("./video/{}/", params.resolution))
         .await
@@ -151,11 +150,21 @@ async fn post_video(
         ))
         .await
         .map_err(|_| ErrorInternalServerError("Unable to write data"))?;
+    let mut has_data = false;
 
     while let Some(bytes_result) = payload.next().await {
+        has_data = true;
         file.write(&bytes_result?)
             .await
             .map_err(|_| ErrorInternalServerError("Unable to write data"))?;
+    }
+
+    if !has_data {
+        video.set(resolution_column, VideoUploadState::Available.into());
+        video
+            .update(&data.db_connection)
+            .await
+            .map_err(|_| ErrorInternalServerError("Unable to end the video file"))?;
     }
 
     Ok("")

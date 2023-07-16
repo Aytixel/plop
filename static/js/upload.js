@@ -55,6 +55,8 @@ function duration_to_string(duration) {
     return string
 }
 
+const video_encode_interval = 2000
+
 function get_video_encode_options_list(width, height, framerate) {
     const aspect_ratio = width / height
 
@@ -82,17 +84,17 @@ function get_video_encode_options_list(width, height, framerate) {
     }).filter((encode_options, index) => index == 0 || encode_options.width <= width)
 }
 
-function encode_video(url, width, height, framerate) {
+function encode_video(url, encode_options, callback) {
     return new Promise(resolve => {
         const canvas = document.createElement("canvas")
         const canvas_context = canvas.getContext("2d")
 
-        canvas.width = width
-        canvas.height = height
+        canvas.width = encode_options.width
+        canvas.height = encode_options.height
 
         const video = document.createElement("video")
         const update_canvas = () => {
-            canvas_context.drawImage(video, 0, 0, width, height)
+            canvas_context.drawImage(video, 0, 0, encode_options.width, encode_options.height)
             video.requestVideoFrameCallback(update_canvas)
         }
 
@@ -100,26 +102,37 @@ function encode_video(url, width, height, framerate) {
         video.src = url
         video.onloadedmetadata = () => {
             const audio_track = video.captureStream().getAudioTracks()[0]
-            const video_stream = canvas.captureStream(framerate)
+            const video_stream = canvas.captureStream(encode_options.framerate)
 
             if (audio_track)
                 video_stream.addTrack(audio_track)
 
             const recorder = new MediaRecorder(video_stream, {
                 audioBitsPerSecond: 128000,
-                videoBitsPerSecond: width * height * framerate * 0.3,
+                videoBitsPerSecond: encode_options.width * encode_options.height * encode_options.framerate * 0.3,
                 mimeType: 'video/webm;codecs="vp8,opus"'
             })
+            const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
 
-            recorder.ondataavailable = e => resolve(e.data)
-            video.onended = () => recorder.stop()
+            recorder.ondataavailable = e => {
+                callback({ resolution: encode_options.resolution, data: e.data })
+
+                if (recorder.state == "inactive")
+                    setTimeout(() => callback({ resolution: encode_options.resolution }), 1000)
+            }
+            video.onended = () => {
+                recorder.stop()
+
+                clearInterval(interval_id)
+                resolve()
+            }
             video.onplay = () => recorder.start()
             video.play()
         }
     })
 }
 
-function encode_multiple_video(url, encode_options_list) {
+function encode_multiple_video(url, encode_options_list, callback) {
     return new Promise(resolve => {
         const canvas_list = encode_options_list.map(encode_options => {
             const canvas = document.createElement("canvas")
@@ -159,14 +172,22 @@ function encode_multiple_video(url, encode_options_list) {
                     videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * 0.3,
                     mimeType: "video/webm;codecs=\"vp8,opus\""
                 })
+                const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
 
                 recorder.ondataavailable = e => {
-                    encode_options_list[key].url = e.data
+                    callback({ resolution: encode_options_list[key].resolution, data: e.data })
+
+                    if (recorder.state == "inactive")
+                        setTimeout(() => callback({ resolution: encode_options_list[key].resolution }), 1000)
+                }
+                video.addEventListener("ended", () => {
+                    recorder.stop()
+
+                    clearInterval(interval_id)
 
                     if (++encoded_video_count == encode_options_list.length)
-                        resolve(encode_options_list)
-                }
-                video.addEventListener("ended", () => recorder.stop())
+                        resolve()
+                })
                 video.addEventListener("play", () => recorder.start())
             }
 
@@ -176,7 +197,6 @@ function encode_multiple_video(url, encode_options_list) {
 }
 
 let video_settings
-let video_duration
 
 video_element.addEventListener("volumechange", () => video_volume_slider_element.value = video_element.volume)
 video_element.addEventListener("timeupdate", () => {
@@ -186,7 +206,6 @@ video_element.addEventListener("timeupdate", () => {
 })
 video_element.addEventListener("loadedmetadata", () => {
     video_settings = video_element.captureStream().getVideoTracks()[0].getSettings()
-    video_duration = video_element.duration
 
     video_width_element.textContent = video_settings.width
     video_height_element.textContent = video_settings.height
@@ -242,8 +261,8 @@ video_upload_form_element.addEventListener("submit", async e => {
     const params = {
         title: form_data.get("title"),
         framerate: video_settings.frameRate,
-        duration: video_duration,
-        resolutions: video_encode_options_list.map(video_encode_option => video_encode_option.resolution)
+        duration: video_element.duration,
+        resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution)
     };
 
     if (form_data.get("description").length)
@@ -253,6 +272,26 @@ video_upload_form_element.addEventListener("submit", async e => {
         params.tags = form_data.get("tags")
 
     const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
+    const low_video_encode_options_list = video_encode_options_list.filter(video_encode_options => video_encode_options.resolution <= 360)
+    const high_video_encode_options_list = video_encode_options_list.filter(video_encode_options => video_encode_options.resolution > 360)
+    const worker = new Worker("/js/upload-worker.js")
 
-    console.log(video_uuid)
+    async function upload_video_chunk(chunk) {
+        chunk.video_uuid = video_uuid
+
+        if (chunk.data) {
+            chunk.data = await chunk.data.arrayBuffer()
+            worker.postMessage(chunk, [chunk.data])
+        } else {
+            worker.postMessage(chunk)
+        }
+    }
+
+    if (low_video_encode_options_list.length)
+        await encode_multiple_video(video_element.src, low_video_encode_options_list, upload_video_chunk)
+
+    for (const video_encode_options of high_video_encode_options_list)
+        await encode_video(video_element.src, video_encode_options, upload_video_chunk)
+
+    console.log("Upload finished : " + video_uuid)
 })
