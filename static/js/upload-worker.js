@@ -1,22 +1,9 @@
-let running = false
-let queue = []
-
-async function upload() {
-    let chunk
-
-    while (chunk = queue.shift()) {
-        await fetch(`/video/${chunk.video_uuid}/${chunk.resolution}`, { method: "POST", headers: { "content-type": "application/octet-stream" }, body: chunk.data })
-    }
-
-    running = false
-}
-
 onmessage = e => {
-    queue.push(e.data)
+    const chunk = e.data
+    const headers = new Headers({ "content-type": "application/octet-stream" })
 
-    if (!running) {
-        running = true
+    if ("starting_byte" in chunk)
+        headers.set("Range", `bytes=${chunk.starting_byte}-`)
 
-        upload()
-    }
+    fetch(`/video/${chunk.video_uuid}/${chunk.resolution}`, { method: "POST", headers, body: chunk.data })
 }

@@ -1,9 +1,11 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, io::SeekFrom};
 
 use actix_web::{
     error::{ErrorInternalServerError, ErrorNotFound},
-    get, post, put,
-    web::{Data, Payload},
+    get,
+    http::header,
+    post, put,
+    web::{Data, Header, Payload},
     HttpResponse, Responder,
 };
 use actix_web_validator::{Json, Path};
@@ -11,7 +13,7 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
 use tokio::{
     fs::{create_dir_all, OpenOptions},
-    io::AsyncWriteExt,
+    io::{AsyncSeekExt, AsyncWriteExt},
 };
 use tokio_stream::StreamExt;
 use uuid::Uuid;
@@ -118,6 +120,7 @@ async fn post_video(
     params: Path<PostVideo>,
     mut payload: Payload,
     data: Data<AppState>,
+    range_header_option: Option<Header<header::Range>>,
 ) -> actix_web::Result<impl Responder> {
     let resolution_column = match params.resolution {
         144 => Ok(video::Column::State144p),
@@ -142,7 +145,7 @@ async fn post_video(
         .ok();
 
     let mut file = OpenOptions::new()
-        .append(true)
+        .write(true)
         .create(true)
         .open(format!(
             "./video/{}/{}.webm",
@@ -151,8 +154,26 @@ async fn post_video(
         .await
         .map_err(|_| ErrorInternalServerError("Unable to write data"))?;
     let mut has_data = false;
+    let mut has_seeked = false;
+
+    if let Some(range_header) = range_header_option {
+        if let header::Range::Bytes(range_vec) = range_header.0 {
+            if let Some(header::ByteRangeSpec::From(starting_byte)) = range_vec.get(0) {
+                file.seek(SeekFrom::Start(*starting_byte))
+                    .await
+                    .map_err(|_| {
+                        ErrorInternalServerError("Unable to seek to the specified range")
+                    })?;
+                has_seeked = true;
+            }
+        }
+    }
 
     while let Some(bytes_result) = payload.next().await {
+        if !has_seeked {
+            break;
+        }
+
         has_data = true;
         file.write(&bytes_result?)
             .await

@@ -113,9 +113,14 @@ function encode_video(url, encode_options, callback) {
                 mimeType: 'video/webm;codecs="vp8,opus"'
             })
             const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
+            let size = 0
+            let starting_byte = 0
 
             recorder.ondataavailable = e => {
-                callback({ resolution: encode_options.resolution, data: e.data })
+                starting_byte += size
+                size = e.data.size
+
+                callback({ resolution: encode_options.resolution, data: e.data, starting_byte })
 
                 if (recorder.state == "inactive")
                     setTimeout(() => callback({ resolution: encode_options.resolution }), 1000)
@@ -173,9 +178,14 @@ function encode_multiple_video(url, encode_options_list, callback) {
                     mimeType: "video/webm;codecs=\"vp8,opus\""
                 })
                 const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
+                let size = 0
+                let starting_byte = 0
 
                 recorder.ondataavailable = e => {
-                    callback({ resolution: encode_options_list[key].resolution, data: e.data })
+                    starting_byte += size
+                    size = e.data.size
+
+                    callback({ resolution: encode_options_list[key].resolution, data: e.data, starting_byte })
 
                     if (recorder.state == "inactive")
                         setTimeout(() => callback({ resolution: encode_options_list[key].resolution }), 1000)
@@ -253,8 +263,8 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     if (uploading_video)
         return;
-    else
-        uploading_video = true
+
+    uploading_video = true
 
     const video_encode_options_list = get_video_encode_options_list(video_settings.width, video_settings.height, video_settings.frameRate)
     const form_data = new FormData(video_upload_form_element)
@@ -274,17 +284,19 @@ video_upload_form_element.addEventListener("submit", async e => {
     const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
     const low_video_encode_options_list = video_encode_options_list.filter(video_encode_options => video_encode_options.resolution <= 360)
     const high_video_encode_options_list = video_encode_options_list.filter(video_encode_options => video_encode_options.resolution > 360)
-    const worker = new Worker("/js/upload-worker.js")
+    const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
 
     async function upload_video_chunk(chunk) {
         chunk.video_uuid = video_uuid
 
         if (chunk.data) {
             chunk.data = await chunk.data.arrayBuffer()
-            worker.postMessage(chunk, [chunk.data])
+            worker[0].postMessage(chunk, [chunk.data])
         } else {
-            worker.postMessage(chunk)
+            worker[0].postMessage(chunk)
         }
+
+        worker.reverse()
     }
 
     if (low_video_encode_options_list.length)
