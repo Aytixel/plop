@@ -1,3 +1,23 @@
+if ("mozCaptureStream" in HTMLMediaElement.prototype)
+    HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
+
+if ("captureStream" in HTMLMediaElement.prototype) {
+    Object.defineProperties(HTMLMediaElement.prototype, {
+        audioTracks: {
+            get: function () {
+                return this.captureStream().getAudioTracks()
+            },
+            enumerable: true
+        },
+        videoTracks: {
+            get: function () {
+                return this.captureStream().getVideoTracks()
+            },
+            enumerable: true
+        }
+    });
+}
+
 const thumbnail_element = document.getElementById("thumbnail")
 const thumbnail_filepicker_element = document.getElementById("thumbnail_filepicker")
 
@@ -84,6 +104,8 @@ function get_video_encode_options_list(width, height, framerate) {
     }).filter((encode_options, index) => index == 0 || encode_options.width <= width)
 }
 
+const encoding_bitrate_multiplier = 0.3
+
 function encode_video(url, encode_options, callback) {
     return new Promise(resolve => {
         const canvas = document.createElement("canvas")
@@ -93,24 +115,33 @@ function encode_video(url, encode_options, callback) {
         canvas.height = encode_options.height
 
         const video = document.createElement("video")
-        const update_canvas = () => {
-            canvas_context.drawImage(video, 0, 0, encode_options.width, encode_options.height)
-            video.requestVideoFrameCallback(update_canvas)
+        let running = true
+
+        function update_canvas() {
+            if (running) {
+                canvas_context.drawImage(video, 0, 0, encode_options.width, encode_options.height)
+                requestAnimationFrame(update_canvas)
+            }
         }
 
-        video.requestVideoFrameCallback(update_canvas)
+        requestAnimationFrame(update_canvas)
+
         video.src = url
         video.onloadedmetadata = () => {
-            const audio_track = video.captureStream().getAudioTracks()[0]
+            const audio_track = video.audioTracks[0]
             const video_stream = canvas.captureStream(encode_options.framerate)
+            let mimeType = "video/webm;codecs=vp8"
 
-            if (audio_track)
+            if (audio_track) {
+                audio_track = "video/webm;codecs=\"vp8,opus\""
+
                 video_stream.addTrack(audio_track)
+            }
 
             const recorder = new MediaRecorder(video_stream, {
                 audioBitsPerSecond: 128000,
-                videoBitsPerSecond: encode_options.width * encode_options.height * encode_options.framerate * 0.3,
-                mimeType: 'video/webm;codecs="vp8,opus"'
+                videoBitsPerSecond: encode_options.width * encode_options.height * encode_options.framerate * encoding_bitrate_multiplier,
+                mimeType
             })
             const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
             let size = 0
@@ -126,6 +157,8 @@ function encode_video(url, encode_options, callback) {
                     setTimeout(() => callback({ resolution: encode_options.resolution }), 1000)
             }
             video.onended = () => {
+                running = false
+
                 recorder.stop()
 
                 clearInterval(interval_id)
@@ -151,31 +184,40 @@ function encode_multiple_video(url, encode_options_list, callback) {
             }
         })
         const video = document.createElement("video")
+        let running = true
 
         function update_canvas() {
-            for (const canvas of canvas_list) {
-                canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
-            }
+            if (running) {
+                for (const canvas of canvas_list) {
+                    canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
+                }
 
-            video.requestVideoFrameCallback(update_canvas)
+                requestAnimationFrame(update_canvas)
+            }
         }
 
-        video.requestVideoFrameCallback(update_canvas)
+        requestAnimationFrame(update_canvas)
+
         video.src = url
+        video.addEventListener("ended", () => running = false)
         video.onloadedmetadata = () => {
-            const audio_track = video.captureStream().getAudioTracks()[0]
+            const audio_track = video.audioTracks[0]
             let encoded_video_count = 0
 
             for (const key in canvas_list) {
                 const video_stream = canvas_list[key].canvas.captureStream(encode_options_list[key].framerate)
+                let mimeType = "video/webm;codecs=vp8"
 
-                if (audio_track)
+                if (audio_track) {
+                    audio_track = "video/webm;codecs=\"vp8,opus\""
+
                     video_stream.addTrack(audio_track)
+                }
 
                 const recorder = new MediaRecorder(video_stream, {
                     audioBitsPerSecond: 128000,
-                    videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * 0.3,
-                    mimeType: "video/webm;codecs=\"vp8,opus\""
+                    videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * encoding_bitrate_multiplier,
+                    mimeType
                 })
                 const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
                 let size = 0
@@ -215,7 +257,10 @@ video_element.addEventListener("timeupdate", () => {
     video_duration_slider_element.value = video_element.currentTime
 })
 video_element.addEventListener("loadedmetadata", () => {
-    video_settings = video_element.captureStream().getVideoTracks()[0].getSettings()
+    video_settings = video_element.videoTracks[0].getSettings()
+    video_settings.width ??= video_element.videoWidth
+    video_settings.height ??= video_element.videoHeight
+    video_settings.frameRate ??= 30
 
     video_width_element.textContent = video_settings.width
     video_height_element.textContent = video_settings.height
