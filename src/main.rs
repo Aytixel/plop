@@ -64,7 +64,11 @@ async fn main() -> io::Result<()> {
             .service(service::get_video)
             .service(service::put_video)
             .service(service::post_video)
-            .service(Files::new("/", "./static/").index_file("html/index.html"))
+            .service(
+                Files::new("/", "./static/")
+                    .use_etag(true)
+                    .index_file("html/index.html"),
+            )
     })
     .bind_rustls(format!("{host}:{port}"), load_rustls_config()?)?
     .run()
