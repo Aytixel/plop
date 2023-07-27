@@ -1,12 +1,13 @@
 use std::{collections::HashSet, io::SeekFrom};
 
+use actix_files::NamedFile;
 use actix_web::{
     error::{ErrorInternalServerError, ErrorNotFound},
     get,
     http::header,
     post, put,
     web::{Data, Header, Payload},
-    HttpResponse, Responder,
+    HttpRequest, Responder,
 };
 use actix_web_validator::{Json, Path};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
@@ -42,11 +43,63 @@ fn valid_resolutions(resolutions: &HashSet<u16>) -> Result<(), ValidationError> 
     Ok(())
 }
 
+fn get_resolution(resolution: u16) -> actix_web::Result<video::Column> {
+    match resolution {
+        144 => Ok(video::Column::State144p),
+        240 => Ok(video::Column::State240p),
+        360 => Ok(video::Column::State360p),
+        480 => Ok(video::Column::State480p),
+        720 => Ok(video::Column::State720p),
+        1080 => Ok(video::Column::State1080p),
+        1440 => Ok(video::Column::State1440p),
+        _ => Err(ErrorNotFound("Wrong resolution")),
+    }
+}
+
+async fn find_video(
+    uuid: Uuid,
+    resolution_column: video::Column,
+    video_upload_state: VideoUploadState,
+    data: &Data<AppState>,
+) -> actix_web::Result<video::ActiveModel> {
+    Ok(video::Entity::find_by_id(uuid)
+        .filter(resolution_column.eq(video_upload_state))
+        .one(&data.db_connection)
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
+        .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?
+        .into())
+}
+
 #[derive(Deserialize, Validate, Debug)]
 struct GetVideo {
     uuid: Uuid,
     #[validate(custom = "valid_resolution")]
     resolution: u16,
+}
+
+#[get("/video/{uuid}/{resolution}")]
+async fn get_video(
+    request: HttpRequest,
+    params: Path<GetVideo>,
+    data: Data<AppState>,
+) -> actix_web::Result<impl Responder> {
+    let resolution_column = get_resolution(params.resolution)?;
+
+    find_video(
+        params.uuid,
+        resolution_column,
+        VideoUploadState::Available,
+        &data,
+    )
+    .await?;
+
+    Ok(NamedFile::open(format!(
+        "./video/{}/{}.webm",
+        params.resolution, params.uuid
+    ))
+    .map_err(|_| ErrorInternalServerError("Unable open the video file"))?
+    .into_response(&request))
 }
 
 #[derive(Deserialize, Validate, Debug)]
@@ -63,18 +116,6 @@ struct PutVideo {
     framerate: u8,
     #[validate(custom = "valid_resolutions")]
     resolutions: HashSet<u16>,
-}
-
-#[derive(Deserialize, Validate, Debug)]
-struct PostVideo {
-    uuid: Uuid,
-    #[validate(custom = "valid_resolution")]
-    resolution: u16,
-}
-
-#[get("/video/{uuid}/{resolution}")]
-async fn get_video(params: Path<GetVideo>) -> actix_web::Result<impl Responder> {
-    Ok(HttpResponse::Ok().content_type("video/webm").finish())
 }
 
 #[put("/video")]
@@ -115,6 +156,13 @@ async fn put_video(
     Ok(uuid.to_string())
 }
 
+#[derive(Deserialize, Validate, Debug)]
+struct PostVideo {
+    uuid: Uuid,
+    #[validate(custom = "valid_resolution")]
+    resolution: u16,
+}
+
 #[post("/video/{uuid}/{resolution}")]
 async fn post_video(
     params: Path<PostVideo>,
@@ -122,23 +170,14 @@ async fn post_video(
     data: Data<AppState>,
     range_header_option: Option<Header<header::Range>>,
 ) -> actix_web::Result<impl Responder> {
-    let resolution_column = match params.resolution {
-        144 => Ok(video::Column::State144p),
-        240 => Ok(video::Column::State240p),
-        360 => Ok(video::Column::State360p),
-        480 => Ok(video::Column::State480p),
-        720 => Ok(video::Column::State720p),
-        1080 => Ok(video::Column::State1080p),
-        1440 => Ok(video::Column::State1440p),
-        _ => Err(ErrorNotFound("Wrong resolution")),
-    }?;
-    let mut video: video::ActiveModel = video::Entity::find_by_id(params.uuid)
-        .filter(resolution_column.eq(VideoUploadState::Uploading))
-        .one(&data.db_connection)
-        .await
-        .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
-        .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?
-        .into();
+    let resolution_column = get_resolution(params.resolution)?;
+    let mut video = find_video(
+        params.uuid,
+        resolution_column,
+        VideoUploadState::Uploading,
+        &data,
+    )
+    .await?;
 
     create_dir_all(format!("./video/{}/", params.resolution))
         .await
