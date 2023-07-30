@@ -11,4 +11,4 @@ pour cela **l'encodage** des différentes résolutions vidéos **est réalisé d
 
 ## Commandes
 
-Génération automatique des entités pour SeaORM : `sea-orm-cli generate entity -o src/entity/ -u postgresql://<username>:<password>@<host>:<port>/<database_name>`
+Génération automatique des entités pour SeaORM : `sea-orm-cli generate entity -o src/entity/`
