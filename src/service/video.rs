@@ -66,7 +66,7 @@ async fn find_video(
     uuid: Uuid,
     resolution_column: video::Column,
     video_upload_state: VideoUploadState,
-    data: &Data<AppState>,
+    data: &Data<AppState<'_>>,
 ) -> actix_web::Result<video::ActiveModel> {
     let video = video::Entity::find_by_id(uuid)
         .one(&data.db_connection)
@@ -114,7 +114,7 @@ struct GetVideo {
 async fn get_video(
     request: HttpRequest,
     params: Path<GetVideo>,
-    data: Data<AppState>,
+    data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
     let resolution_column = get_resolution(params.resolution)?;
     let mut is_cached = false;
@@ -172,7 +172,7 @@ struct PutVideo {
 #[put("/video")]
 async fn put_video(
     payload: Json<PutVideo>,
-    data: Data<AppState>,
+    data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
     let has_resolution = |resolution| {
         if payload.resolutions.contains(&resolution) {
@@ -218,7 +218,7 @@ struct PostVideo {
 async fn post_video(
     params: Path<PostVideo>,
     mut payload: Payload,
-    data: Data<AppState>,
+    data: Data<AppState<'_>>,
     range_header_option: Option<Header<header::Range>>,
 ) -> actix_web::Result<impl Responder> {
     let resolution_column = get_resolution(params.resolution)?;

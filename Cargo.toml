@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 dotenvy = "0.15"
 serde = "1"
+serde_json = "1"
 validator = { version = "0.16", features = ["derive"] }
+handlebars = { version = "4", features = ["dir_source"] }
 tokio = { version = "1.28", features = ["full"] }
 tokio-stream = "0.1"
 actix-web = { version = "4", features = ["rustls"] }

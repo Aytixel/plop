@@ -11,10 +11,10 @@ use fred::{
     prelude::{ClientLike, RedisClient},
     types::{PerformanceConfig, ReconnectPolicy, RedisConfig},
 };
+use handlebars::Handlebars;
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use sea_orm::{Database, DatabaseConnection};
-
 pub trait AnyhowResult<T>: Sized {
     fn anyhow(self) -> anyhow::Result<T>;
 }
@@ -28,9 +28,10 @@ where
     }
 }
 
-pub struct AppState {
+pub struct AppState<'a> {
     db_connection: DatabaseConnection,
     redis_client: RedisClient,
+    handlebars: Handlebars<'a>,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -52,9 +53,14 @@ async fn main() -> anyhow::Result<()> {
     redis_client.connect();
     redis_client.wait_for_connect().await?;
 
+    let mut handlebars = Handlebars::new();
+
+    handlebars.register_templates_directory(".hbs", "./static/templates")?;
+
     let state = Data::new(AppState {
         db_connection,
         redis_client,
+        handlebars,
     });
 
     HttpServer::new(move || {
@@ -67,6 +73,7 @@ async fn main() -> anyhow::Result<()> {
             .service(service::get_video)
             .service(service::put_video)
             .service(service::post_video)
+            .service(service::get_watch)
             .service(
                 Files::new("/", "./static/")
                     .use_etag(true)
