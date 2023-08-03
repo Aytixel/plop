@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut handlebars = Handlebars::new();
 
-    handlebars.register_templates_directory(".hbs", "./static/templates")?;
+    handlebars.register_templates_directory(".hbs", "./templates")?;
 
     let state = Data::new(AppState {
         db_connection,
