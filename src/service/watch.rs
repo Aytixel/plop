@@ -22,7 +22,7 @@ struct GetWatch {
 }
 
 #[get("/watch/{uuid}")]
-async fn get_watch(
+async fn get(
     params: Path<GetWatch>,
     data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {

@@ -1,5 +1,2 @@
-mod video;
-mod watch;
-
-pub use video::*;
-pub use watch::*;
+pub mod video;
+pub mod watch;
