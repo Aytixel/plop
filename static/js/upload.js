@@ -104,7 +104,7 @@ function get_video_encode_options_list(width, height, framerate) {
     }).filter((encode_options, index) => index == 0 || encode_options.width <= width)
 }
 
-const encoding_bitrate_multiplier = 0.3
+const encoding_bitrate_multiplier = 0.12
 
 function encode_video(url, encode_options, callback) {
     return new Promise(resolve => {
@@ -130,10 +130,10 @@ function encode_video(url, encode_options, callback) {
         video.onloadedmetadata = () => {
             const audio_track = video.audioTracks[0]
             const video_stream = canvas.captureStream(encode_options.framerate)
-            let mimeType = "video/webm;codecs=vp8"
+            let mimeType = "video/webm;codecs=vp9"
 
             if (audio_track) {
-                audio_track = "video/webm;codecs=\"vp8,opus\""
+                audio_track = "video/webm;codecs=\"vp9,opus\""
 
                 video_stream.addTrack(audio_track)
             }
@@ -206,10 +206,10 @@ function encode_multiple_video(url, encode_options_list, callback) {
 
             for (const key in canvas_list) {
                 const video_stream = canvas_list[key].canvas.captureStream(encode_options_list[key].framerate)
-                let mimeType = "video/webm;codecs=vp8"
+                let mimeType = "video/webm;codecs=vp9"
 
                 if (audio_track) {
-                    audio_track = "video/webm;codecs=\"vp8,opus\""
+                    audio_track = "video/webm;codecs=\"vp9,opus\""
 
                     video_stream.addTrack(audio_track)
                 }
