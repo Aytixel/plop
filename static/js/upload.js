@@ -143,7 +143,6 @@ function encode_video(url, encode_options, callback) {
                 videoBitsPerSecond: encode_options.width * encode_options.height * encode_options.framerate * encoding_bitrate_multiplier,
                 mimeType
             })
-            const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
             let size = 0
             let starting_byte = 0
 
@@ -161,10 +160,9 @@ function encode_video(url, encode_options, callback) {
 
                 recorder.stop()
 
-                clearInterval(interval_id)
                 resolve()
             }
-            video.onplay = () => recorder.start()
+            video.onplay = () => recorder.start(video_encode_interval)
             video.play()
         }
     })
@@ -219,7 +217,6 @@ function encode_multiple_video(url, encode_options_list, callback) {
                     videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * encoding_bitrate_multiplier,
                     mimeType
                 })
-                const interval_id = setInterval(() => recorder.requestData(), video_encode_interval)
                 let size = 0
                 let starting_byte = 0
 
@@ -235,12 +232,10 @@ function encode_multiple_video(url, encode_options_list, callback) {
                 video.addEventListener("ended", () => {
                     recorder.stop()
 
-                    clearInterval(interval_id)
-
                     if (++encoded_video_count == encode_options_list.length)
                         resolve()
                 })
-                video.addEventListener("play", () => recorder.start())
+                video.addEventListener("play", () => recorder.start(video_encode_interval))
             }
 
             video.play()
