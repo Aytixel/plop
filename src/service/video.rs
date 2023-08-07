@@ -11,7 +11,6 @@ use actix_web::{
     HttpRequest, Responder,
 };
 use actix_web_validator::{Json, Path};
-use ammonia::clean_text;
 use fred::{
     prelude::KeysInterface,
     types::{Expiration, RedisValue},
@@ -79,17 +78,11 @@ async fn put(
     let uuid = Uuid::new_v4();
     let video = video::ActiveModel {
         uuid: Set(uuid),
-        title: Set(clean_text(&payload.title)),
-        description: Set(payload
-            .description
-            .as_ref()
-            .map(|description| clean_text(description))),
+        title: Set(payload.title.clone()),
+        description: Set(payload.description.clone()),
         duration: Set(payload.duration),
         framerate: Set(payload.framerate as i16),
-        tags: Set(payload
-            .tags
-            .as_ref()
-            .map(|description| clean_text(description))),
+        tags: Set(payload.tags.clone()),
         state_144p: Set(has_resolution(144)),
         state_240p: Set(has_resolution(240)),
         state_360p: Set(has_resolution(360)),

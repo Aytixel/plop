@@ -28,4 +28,3 @@ sea-orm = { version = "0.11.3", features = [
 ] }
 fred = "6"
 anyhow = "1"
-ammonia = "3.3.0"
