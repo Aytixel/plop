@@ -4,11 +4,22 @@ const time_ago = (async () => {
     return new TimeAgo('fr')
 })()
 
+let battery_high = true
+
+if (navigator.getBattery) navigator.getBattery().then((battery) => {
+    function update() {
+        battery_high = battery.charging || battery.level > 0.25
+    }
+
+    battery.addEventListener("chargingchange", update)
+    battery.addEventListener("levelchange", update)
+})
+
 // video player
 {
     document.getElementById("video_player_controls").querySelectorAll("input[type='range']").forEach(element => {
         function update() {
-            element.style = "--range-position: " + (element.value / element.max * 100) + "%;"
+            requestAnimationFrame(() => element.style = "--range-position: " + (element.value / element.max * 100) + "%;")
         }
 
         function down() {
@@ -20,7 +31,7 @@ const time_ago = (async () => {
         function move(e) {
             const rect = element.getBoundingClientRect()
 
-            element.value = Math.max(0, Math.min(element.max, (e.clientX - rect.x) / (rect.width - rect.x) * element.max))
+            element.value = (e.clientX - rect.x) / (rect.width - rect.x) * element.max
         }
 
         function up() {
@@ -32,6 +43,7 @@ const time_ago = (async () => {
         element.addEventListener("input", update)
         element.addEventListener("update", update)
         element.addEventListener("pointerdown", down)
+
         update()
     })
 
@@ -45,43 +57,120 @@ const time_ago = (async () => {
     }
 
     const video_player = document.getElementById("video_player")
-    const video = video_player.firstElementChild
+    const canvas = video_player.children[0]
+    const context = canvas.getContext("2d")
+    const compute_canvas = canvas.cloneNode()
+    const compute_context = compute_canvas.getContext("2d")
+    const video = video_player.children[1]
+
+    context.globalAlpha = 0.05
+
+    function update_canvas() {
+        if (video_player.dataset.ambient_light == "true")
+            setTimeout(() => requestAnimationFrame(() => compute_context.drawImage(video, 0, 0, compute_canvas.width, compute_canvas.height)), 500)
+    }
+
+    setInterval(() => !video.paused && update_canvas(), 2000)
+    setInterval(() => {
+        video_player.dataset.ambient_light = document.fullscreenElement == null && battery_high
+
+        if (video_player.dataset.ambient_light == "true")
+            requestAnimationFrame(() => context.drawImage(compute_canvas, 0, 0, canvas.width, canvas.height))
+    }, 100)
+
+    video.addEventListener("loadeddata", () => setTimeout(update_canvas, 100))
+
+    const overlay = document.getElementById("video_player_overlay")
     const play_button_element = document.getElementById("video_player_play_button")
-    const mute_button_element = document.getElementById("video_player_mute_button")
+    const volume_button_element = document.getElementById("video_player_volume_button")
     const popup_button_element = document.getElementById("video_player_popup_button")
     const fullscreen_button_element = document.getElementById("video_player_fullscreen_button")
 
+    function play() {
+        video.paused ? video.play() : video.pause()
+    }
+
+    overlay.addEventListener("click", e => {
+        if (e.target == overlay)
+            play()
+    })
+    play_button_element.addEventListener("click", play)
+    volume_button_element.addEventListener("click", () => video.muted = !video.muted)
+    popup_button_element.addEventListener("click", () => !video.disablePictureInPicture && video.requestPictureInPicture())
+
     function fullscreen() {
+        overlay.dataset.fullscreen = fullscreen_button_element.dataset.fullscreen = document.fullscreenElement == null
+
         if (document.fullscreenElement == null)
             video_player.requestFullscreen()
         else
             document.exitFullscreen()
     }
 
-    play_button_element.addEventListener("click", () => video.paused ? video.play() : video.pause())
-    mute_button_element.addEventListener("click", () => video.muted = !video.muted)
-    popup_button_element.addEventListener("click", () => !video.disablePictureInPicture && video.requestPictureInPicture())
     fullscreen_button_element.addEventListener("click", fullscreen)
     video_player.addEventListener("dblclick", fullscreen)
 
-    const duration_slider_element = document.getElementById("video_player_duration_slider")
+    function update_play_button() {
+        play_button_element.dataset.paused = video.paused
+    }
+
+    video.addEventListener("play", update_play_button)
+    video.addEventListener("pause", update_play_button)
+
+    const progression_slider_element = document.getElementById("video_player_progression_slider")
     const volume_slider_element = document.getElementById("video_player_volume_slider")
-    const timespan_element = document.getElementById("video_player_timespan")
+    const progression_element = document.getElementById("video_player_progression")
     const duration_element = document.getElementById("video_player_duration")
+    let was_paused = video.paused
 
-    duration_element.textContent = duration_to_string(duration_slider_element.max)
+    duration_element.textContent = duration_to_string(progression_slider_element.max)
 
-    duration_slider_element.addEventListener("input", () => timespan_element.textContent = duration_to_string(video.currentTime = duration_slider_element.value))
-    volume_slider_element.addEventListener("input", () => video.volume = volume_slider_element.value)
-
-    video.addEventListener("durationchange", () => isFinite(video.duration) && (duration_element.textContent = duration_to_string(duration_slider_element.max = video.duration)))
-    video.addEventListener("timeupdate", () => {
-        timespan_element.textContent = duration_to_string(duration_slider_element.value = video.currentTime)
-        duration_slider_element.dispatchEvent(new Event("update"))
+    progression_slider_element.addEventListener("input", () => {
+        progression_element.textContent = duration_to_string(video.currentTime = progression_slider_element.value)
+        update_canvas()
     })
+    progression_slider_element.addEventListener("pointerdown", () => {
+        was_paused = video.paused
+        video.pause()
+
+        function up() {
+            was_paused ? video.pause() : video.play()
+
+            progression_slider_element.removeEventListener("pointerup", up)
+            progression_slider_element.removeEventListener("pointerout", up)
+        }
+
+        progression_slider_element.addEventListener("pointerup", up)
+        progression_slider_element.addEventListener("pointerout", up)
+    })
+    volume_slider_element.addEventListener("input", () => {
+        video.volume = volume_slider_element.value
+        video.muted = false
+    })
+
+    video.addEventListener("durationchange", () => {
+        if (isFinite(video.duration))
+            (duration_element.textContent = duration_to_string(progression_slider_element.max = video.duration))
+    })
+    video.addEventListener("timeupdate", () => {
+        progression_element.textContent = duration_to_string(progression_slider_element.value = video.currentTime)
+        progression_slider_element.dispatchEvent(new Event("update"))
+    })
+
+    function update_volume_button() {
+        if (video.muted) {
+            volume_button_element.dataset.volume = "muted"
+            return
+        }
+
+        volume_button_element.dataset.volume = video.volume > 0.5 ? "high" : video.volume > 0 ? "low" : "muted"
+    }
+
     video.addEventListener("volumechange", () => {
         volume_slider_element.value = video.volume
         volume_slider_element.dispatchEvent(new Event("update"))
+
+        update_volume_button()
     })
 }
 

@@ -62,6 +62,14 @@ async fn get(
                 &json!({
                     "title": video.title,
                     "description": video.description,
+                    "meta_description": video.description.map(|mut description| {
+                        if description.len() > 100 {
+                            description.truncate(100);
+                            description + "..."
+                        } else {
+                            description
+                        }
+                    }),
                     "framerate": video.framerate,
                     "duration": video.duration,
                     "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),

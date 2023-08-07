@@ -4,6 +4,8 @@
 
     margin: 0;
 
+    box-sizing: border-box;
+
     padding: 0;
 }
 
@@ -19,10 +21,30 @@ body {
 
 */
 #video_player {
-    margin: 1em;
+    margin: auto;
+    margin-top: 1em;
 
     width: 66.667vw;
     height: 37.5vw;
+}
+
+#video_player canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    width: 100%;
+    aspect-ratio: 16/9;
+
+    filter: blur(7em);
+
+    translate: -50% -50%;
+
+    pointer-events: none;
+}
+
+#video_player[data-ambient_light="false"] canvas {
+    display: none;
 }
 
 #video_player video {
@@ -30,6 +52,11 @@ body {
     height: 100%;
 
     border-radius: .5em;
+
+    background-color: #0000;
+
+    object-fit: contain;
+    object-position: center;
 }
 
 #video_player_overlay {
@@ -44,7 +71,11 @@ body {
 
     color: rgb(var(--color-fixed-light));
 
-    background: linear-gradient(180deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 10%, #0000 85%, rgb(var(--color-fixed-dark) / .5) 100%);
+    background: linear-gradient(0deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 15%, #0000 90%, rgb(var(--color-fixed-dark) / .5) 100%);
+}
+
+#video_player_overlay[data-fullscreen="false"] {
+    background: linear-gradient(0deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 15%, #0000 100%);
 }
 
 #video_player:fullscreen :where(video, #video_player_overlay) {
@@ -64,6 +95,10 @@ body {
     font-size: 1.75em;
 }
 
+#video_player_overlay[data-fullscreen="false"] #video_player_title {
+    display: none;
+}
+
 /*
 
     Video Player Controls
@@ -73,17 +108,16 @@ body {
     position: absolute;
     bottom: 0;
 
-    box-sizing: border-box;
     width: 100%;
 
     padding: 1em;
 }
 
-#video_player_controls input {
+#video_player_controls :where(input, button) {
     cursor: pointer;
 }
 
-#video_player_controls input[type="button"] {
+#video_player_controls button {
     flex-shrink: 0;
 
     width: 2.5em;
@@ -94,7 +128,14 @@ body {
     border: none;
     border-radius: 0;
 
-    background-color: rgb(var(--color-fixed-light));
+    background: none;
+}
+
+#video_player_controls button svg {
+    width: 100%;
+    height: 100%;
+
+    fill: rgb(var(--color-fixed-light));
 }
 
 #video_player_controls input[type="range"] {
@@ -156,11 +197,11 @@ body {
     gap: 1em;
 }
 
-#video_player_controls div span:last-of-type {
+#video_player_controls div .filler {
     flex-grow: 1;
 }
 
-#video_player_duration_slider {
+#video_player_progression_slider {
     width: 100%;
 
     margin-bottom: 1em;
@@ -177,11 +218,31 @@ body {
     transition: .3s .5s ease scale, .3s .5s ease margin-left;
 }
 
-#video_player_mute_button:hover+#video_player_volume_slider,
-#video_player_volume_slider:is(:hover, :focus) {
+#video_player_volume_button:hover+#video_player_volume_slider,
+#video_player_volume_slider:where(:hover, :focus) {
     margin-left: 0;
 
     scale: 1;
 
     transition-delay: 0s;
+}
+
+:where(#video_player_play_button, #video_player_volume_button, #video_player_fullscreen_button) svg {
+    display: none;
+}
+
+#video_player_play_button[data-paused="false"] svg:nth-child(1),
+#video_player_play_button[data-paused="true"] svg:nth-child(2) {
+    display: block;
+}
+
+#video_player_volume_button[data-volume="high"] svg:nth-child(1),
+#video_player_volume_button[data-volume="low"] svg:nth-child(2),
+#video_player_volume_button[data-volume="muted"] svg:nth-child(3) {
+    display: block;
+}
+
+#video_player_fullscreen_button[data-fullscreen="false"] svg:nth-child(1),
+#video_player_fullscreen_button[data-fullscreen="true"] svg:nth-child(2) {
+    display: block;
 }
