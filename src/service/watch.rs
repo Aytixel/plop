@@ -64,10 +64,11 @@ async fn get(
                     "description": video.description,
                     "framerate": video.framerate,
                     "duration": video.duration,
-                    "timestamp": video.timestamp,
-                    "uuid": params.uuid,
+                    "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
+                    "uuid": video.uuid,
                     "resolution": resolutions.iter().max(),
-                    "resolutions": resolutions
+                    "resolutions": resolutions,
+                    "vues": video.vues
                 }),
             )
             .unwrap(),

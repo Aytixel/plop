@@ -1,0 +1,16 @@
+:root {
+    --color-fixed-light: 255 255 255;
+    --color-fixed-dark: 32 32 32;
+
+    --color-primary: 0 255 255;
+    --color-secondary: 255 218 0;
+    --color-light: var(--color-fixed-light);
+    --color-dark: var(--color-fixed-dark);
+}
+
+:root.dark {
+    --color-primary: 0 153 255;
+    --color-secondary: 255 145 0;
+    --color-light: var(--color-fixed-dark);
+    --color-dark: var(--color-fixed-light);
+}

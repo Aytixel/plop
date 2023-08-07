@@ -10,18 +10,52 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
     <title>{{title}}</title>
+    <link rel="preload stylesheet" as="style" type="text/css" href="/css/palette.css">
+    <link rel="preload stylesheet" as="style" type="text/css" href="/css/font.css">
+    <link rel="preload stylesheet" as="style" type="text/css" href="/css/watch.css">
+    <script src="https://unpkg.com/mol_time_all@1.1/web.js"></script>
+    <script src="https://unpkg.com/javascript-time-ago@2.5/bundle/javascript-time-ago.js"></script>
+    <script>
+        const video_metadata = {
+            uuid: "{{uuid}}",
+            vues: +"{{vues}}",
+            date: new $mol_time_moment("{{timestamp}}"),
+            duration: +"{{duration}}",
+            framerate: +"{{framerate}}",
+        }
+    </script>
+    <script src="/js/watch.js" defer></script>
 </head>
 
 <body>
-    <video src="/video/{{uuid}}/{{resolution}}" data-resolution="{{resolution}}" data-framerate="{{{framerate}}}"
-        data-duration="{{duration}}" width="1280" height="720" controls>
-        {{#each resolutions as |resolution|}}
-        <source src="/video/{{../uuid}}/{{resolution}}" data-resolution="{{resolution}}" type="video/webm">
-        {{/each}}
-    </video>
+    <div id="video_player">
+        <video src="/video/{{uuid}}/{{resolution}}" data-resolution="{{resolution}}" width="1280" height="720">
+            {{#each resolutions as |resolution|}}
+            <source src="/video/{{../uuid}}/{{resolution}}" data-resolution="{{resolution}}" type="video/webm">
+            {{/each}}
+        </video>
+        <div id="video_player_overlay">
+            <div id="video_player_title">{{title}}</div>
+            <div id="video_player_controls">
+                <input type="range" min="0" value="0" max="{{duration}}" step="0.05" id="video_player_duration_slider">
+                <div>
+                    <input type="button" id="video_player_play_button">
+                    <input type="button" id="video_player_mute_button">
+                    <input type="range" min="0" max="1" value="1" step="0.05" id="video_player_volume_slider">
+                    <span id="video_player_timespan">0:00</span> / <span id="video_player_duration">0:00</span>
+                    <span></span>
+                    <input type="button" id="video_player_popup_button">
+                    <input type="button" id="video_player_fullscreen_button">
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="title">{{title}}</div>
-    <time datetime="{{timestamp}}Z">{{timestamp}}Z</time>
-    <div id="description">{{description}}</div>
+    <div id="description">
+        <span id="vues"></span>
+        <time id="time" datetime="{{timestamp}}"></time>
+        {{description}}
+    </div>
 </body>
 
 </html>
