@@ -12,3 +12,5 @@ pour cela **l'encodage** des différentes résolutions vidéos **est réalisé d
 ## Commandes
 
 Génération automatique des entités pour SeaORM : `sea-orm-cli generate entity -o src/entity/`
+
+Génération de certifica ssl de développement : `mkdir cert; mkcert -key-file cert/key.pem -cert-file cert/cert.pem 127.0.0.1 localhost`
