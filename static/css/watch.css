@@ -72,10 +72,19 @@ body {
     color: rgb(var(--color-fixed-light));
 
     background: linear-gradient(0deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 15%, #0000 90%, rgb(var(--color-fixed-dark) / .5) 100%);
+
+    opacity: 0;
+
+    transition: .2s ease opacity;
 }
 
-#video_player_overlay[data-fullscreen="false"] {
+#video_player[data-fullscreen="false"] #video_player_overlay {
     background: linear-gradient(0deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 15%, #0000 100%);
+}
+
+#video_player[data-paused="true"] #video_player_overlay,
+#video_player_overlay[data-show="true"] {
+    opacity: 1;
 }
 
 #video_player:fullscreen :where(video, #video_player_overlay) {
@@ -95,7 +104,7 @@ body {
     font-size: 1.75em;
 }
 
-#video_player_overlay[data-fullscreen="false"] #video_player_title {
+#video_player[data-fullscreen="false"] #video_player_title {
     display: none;
 }
 
@@ -224,25 +233,25 @@ body {
 
     scale: 1;
 
-    transition-delay: 0s;
+    transition-delay: .1s;
 }
 
 :where(#video_player_play_button, #video_player_volume_button, #video_player_fullscreen_button) svg {
     display: none;
 }
 
-#video_player_play_button[data-paused="false"] svg:nth-child(1),
-#video_player_play_button[data-paused="true"] svg:nth-child(2) {
+#video_player[data-paused="false"] #video_player_play_button svg:nth-child(1),
+#video_player[data-paused="true"] #video_player_play_button svg:nth-child(2) {
     display: block;
 }
 
-#video_player_volume_button[data-volume="high"] svg:nth-child(1),
-#video_player_volume_button[data-volume="low"] svg:nth-child(2),
-#video_player_volume_button[data-volume="muted"] svg:nth-child(3) {
+#video_player[data-volume="high"] #video_player_volume_button svg:nth-child(1),
+#video_player[data-volume="low"] #video_player_volume_button svg:nth-child(2),
+#video_player[data-volume="muted"] #video_player_volume_button svg:nth-child(3) {
     display: block;
 }
 
-#video_player_fullscreen_button[data-fullscreen="false"] svg:nth-child(1),
-#video_player_fullscreen_button[data-fullscreen="true"] svg:nth-child(2) {
+#video_player[data-fullscreen="false"] #video_player_fullscreen_button svg:nth-child(1),
+#video_player[data-fullscreen="true"] #video_player_fullscreen_button svg:nth-child(2) {
     display: block;
 }

@@ -1,3 +1,16 @@
+function debounce(callback, delay) {
+    let timer
+
+    return function () {
+        const args = arguments
+        const context = this
+
+        clearTimeout(timer)
+
+        timer = setTimeout(() => callback.apply(context, args), delay)
+    }
+}
+
 const time_ago = (async () => {
     TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
 
@@ -86,6 +99,17 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
     const popup_button_element = document.getElementById("video_player_popup_button")
     const fullscreen_button_element = document.getElementById("video_player_fullscreen_button")
 
+    const hide_overlay = debounce(() => overlay.dataset.show = false, 2000)
+
+    overlay.addEventListener("pointermove", () => {
+        if (overlay.dataset.show == "false") {
+            overlay.dataset.show = true
+
+            hide_overlay()
+        }
+    })
+    overlay.addEventListener("pointerout", () => overlay.dataset.show = false)
+
     function play() {
         video.paused ? video.play() : video.pause()
     }
@@ -99,7 +123,7 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
     popup_button_element.addEventListener("click", () => !video.disablePictureInPicture && video.requestPictureInPicture())
 
     function fullscreen() {
-        overlay.dataset.fullscreen = fullscreen_button_element.dataset.fullscreen = document.fullscreenElement == null
+        video_player.dataset.fullscreen = document.fullscreenElement == null
 
         if (document.fullscreenElement == null)
             video_player.requestFullscreen()
@@ -111,7 +135,7 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
     video_player.addEventListener("dblclick", fullscreen)
 
     function update_play_button() {
-        play_button_element.dataset.paused = video.paused
+        video_player.dataset.paused = video.paused
     }
 
     video.addEventListener("play", update_play_button)
@@ -159,11 +183,11 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
 
     function update_volume_button() {
         if (video.muted) {
-            volume_button_element.dataset.volume = "muted"
+            video_player.dataset.volume = "muted"
             return
         }
 
-        volume_button_element.dataset.volume = video.volume > 0.5 ? "high" : video.volume > 0 ? "low" : "muted"
+        video_player.dataset.volume = video.volume > 0.5 ? "high" : video.volume > 0 ? "low" : "muted"
     }
 
     video.addEventListener("volumechange", () => {
