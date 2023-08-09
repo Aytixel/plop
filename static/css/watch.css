@@ -157,10 +157,12 @@ body {
     border: none;
     border-radius: .25em;
 
-    background: linear-gradient(90deg, rgb(var(--color-primary)) var(--range-position), rgb(var(--color-fixed-light) / .5) var(--range-position), rgb(var(--color-fixed-light) / .5) 100%);
+    background-color: rgb(var(--color-fixed-light) / .5);
 }
 
 #video_player_controls input[type="range"]::-webkit-slider-thumb {
+    margin-top: -.25em;
+
     width: 1em;
     height: 1em;
 
@@ -183,12 +185,16 @@ body {
 }
 
 #video_player_controls input[type=range]::-webkit-slider-runnable-track {
+    height: .5em;
+
     appearance: none;
 
     border: none;
+    border-radius: .25em;
 
-    background-color: transparent;
     box-shadow: none;
+
+    background: linear-gradient(90deg, rgb(var(--color-primary)) var(--range-position), #0000 var(--range-position));
 }
 
 #video_player_controls input[type=range]::-moz-range-track {

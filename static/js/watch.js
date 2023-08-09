@@ -21,7 +21,7 @@ let battery_high = true
 
 if (navigator.getBattery) navigator.getBattery().then((battery) => {
     function update() {
-        battery_high = battery.charging || battery.level > 0.25
+        battery_high = battery.charging || battery.level > .25
     }
 
     battery.addEventListener("chargingchange", update)
@@ -32,7 +32,7 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
 {
     document.getElementById("video_player_controls").querySelectorAll("input[type='range']").forEach(element => {
         function update() {
-            requestAnimationFrame(() => element.style = "--range-position: " + (element.value / element.max * 100) + "%;")
+            requestAnimationFrame(() => element.style.setProperty("--range-position", element.value / element.max * 100 + "%"))
         }
 
         function down() {
@@ -76,7 +76,7 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
     const compute_context = compute_canvas.getContext("2d")
     const video = video_player.children[1]
 
-    context.globalAlpha = 0.05
+    context.globalAlpha = .05
 
     function update_canvas() {
         if (video_player.dataset.ambient_light == "true")
@@ -173,8 +173,10 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
     })
 
     video.addEventListener("durationchange", () => {
-        if (isFinite(video.duration))
-            (duration_element.textContent = duration_to_string(progression_slider_element.max = video.duration))
+        if (isFinite(video.duration)) {
+            video_metadata.duration = video.duration
+            duration_element.textContent = duration_to_string(progression_slider_element.max = video.duration)
+        }
     })
     video.addEventListener("timeupdate", () => {
         progression_element.textContent = duration_to_string(progression_slider_element.value = video.currentTime)
@@ -187,7 +189,7 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
             return
         }
 
-        video_player.dataset.volume = video.volume > 0.5 ? "high" : video.volume > 0 ? "low" : "muted"
+        video_player.dataset.volume = video.volume > .5 ? "high" : video.volume > 0 ? "low" : "muted"
     }
 
     video.addEventListener("volumechange", () => {
@@ -196,6 +198,24 @@ if (navigator.getBattery) navigator.getBattery().then((battery) => {
 
         update_volume_button()
     })
+
+    function update_buffered_progress() {
+        const gradients = []
+
+        for (let i = 0; i < video.buffered.length; i++) {
+
+            const start = video.buffered.start(i) / video_metadata.duration * 100
+            const end = video.buffered.end(i) / video_metadata.duration * 100
+
+            gradients.push(`rgb(var(--color-fixed-light) / .4) ${start}%, rgb(var(--color-secondary) / .7) ${start}%, rgb(var(--color-secondary) / .7) ${end}%, rgb(var(--color-fixed-light) / .4) ${end}%`)
+        }
+
+        progression_slider_element.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
+    }
+
+    video.addEventListener("progress", update_buffered_progress)
+    video.addEventListener("timeupdate", update_buffered_progress)
+    video.addEventListener("play", update_buffered_progress)
 }
 
 // video description
