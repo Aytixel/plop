@@ -133,7 +133,7 @@ function encode_video(url, encode_options, callback) {
             let mimeType = "video/webm;codecs=vp9"
 
             if (audio_track) {
-                audio_track = "video/webm;codecs=\"vp9,opus\""
+                mimeType = "video/webm;codecs=\"vp9,opus\""
 
                 video_stream.addTrack(audio_track)
             }
@@ -207,7 +207,7 @@ function encode_multiple_video(url, encode_options_list, callback) {
                 let mimeType = "video/webm;codecs=vp9"
 
                 if (audio_track) {
-                    audio_track = "video/webm;codecs=\"vp9,opus\""
+                    mimeType = "video/webm;codecs=\"vp9,opus\""
 
                     video_stream.addTrack(audio_track)
                 }
