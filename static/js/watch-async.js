@@ -24,6 +24,46 @@ function debounce(callback, delay) {
 
 const url_search_params = new URLSearchParams(location.search)
 
+// media session
+if ("mediaSession" in navigator) {
+    const video = document.getElementById("video_player").children[1]
+
+    video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
+    video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
+    video.addEventListener("timeupdate", () => navigator.mediaSession.setPositionState({
+        duration: video_metadata.duration,
+        playbackRate: video.playbackRate,
+        position: video.currentTime
+    }))
+
+    navigator.mediaSession.setPositionState({
+        duration: video_metadata.duration,
+        playbackRate: video.playbackRate,
+        position: video.currentTime
+    })
+    navigator.mediaSession.playbackState = video.paused ? "paused" : "playing"
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: video_metadata.title
+    })
+    navigator.mediaSession.setActionHandler("play", () => video.play())
+    navigator.mediaSession.setActionHandler("pause", () => video.pause())
+    navigator.mediaSession.setActionHandler("stop", () => {
+        video.pause()
+        video.currentTime = 0
+    })
+    navigator.mediaSession.setActionHandler("seekbackward", (details) => video.currentTime -= details.seekOffset || 2)
+    navigator.mediaSession.setActionHandler("seekforward", (details) => video.currentTime += details.seekOffset || 2)
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (details.fastSeek && 'fastSeek' in video) {
+            video.fastSeek(details.seekTime)
+
+            return
+        }
+
+        video.currentTime = details.seekTime
+    })
+}
+
 // video player
 {
     document.getElementById("video_player_controls").querySelectorAll("input[type='range']").forEach(element => {
@@ -71,12 +111,13 @@ const url_search_params = new URLSearchParams(location.search)
     const compute_canvas = canvas.cloneNode()
     const compute_context = compute_canvas.getContext("2d")
     const video = video_player.children[1]
-    const start_time = parseFloat(url_search_params.get("t"))
+    let start_time = parseFloat(url_search_params.get("t"))
 
-    if (start_time >= 0 && start_time <= video_metadata.duration)
+    if (!(start_time >= 0 && start_time <= video_metadata.duration))
+        start_time = parseFloat(localStorage.getItem(`video-progress:${video_metadata.uuid}`, video.currentTime)) || 0
+
+    if (start_time < video_metadata.duration - 1)
         video.currentTime = start_time
-    else
-        video.currentTime = parseFloat(localStorage.getItem(`video-progress:${video_metadata.uuid}`, video.currentTime)) || 0
 
     context.globalAlpha = .05
 
@@ -96,10 +137,10 @@ const url_search_params = new URLSearchParams(location.search)
     video.addEventListener("loadeddata", () => setTimeout(update_canvas, 100))
 
     const overlay = document.getElementById("video_player_overlay")
-    const play_button_element = document.getElementById("video_player_play_button")
-    const volume_button_element = document.getElementById("video_player_volume_button")
-    const popup_button_element = document.getElementById("video_player_popup_button")
-    const fullscreen_button_element = document.getElementById("video_player_fullscreen_button")
+    const play_button = document.getElementById("video_player_play_button")
+    const volume_button = document.getElementById("video_player_volume_button")
+    const popup_button = document.getElementById("video_player_popup_button")
+    const fullscreen_button = document.getElementById("video_player_fullscreen_button")
 
     const hide_overlay = debounce(() => overlay.dataset.show = false, 2000)
 
@@ -120,20 +161,23 @@ const url_search_params = new URLSearchParams(location.search)
         if (e.target == overlay)
             play()
     })
-    play_button_element.addEventListener("click", play)
-    volume_button_element.addEventListener("click", () => video.muted = !video.muted)
-    popup_button_element.addEventListener("click", () => !video.disablePictureInPicture && video.requestPictureInPicture())
+    play_button.addEventListener("click", play)
+    volume_button.addEventListener("click", () => video.muted = !video.muted)
+    popup_button.addEventListener("click", () => !video.disablePictureInPicture && video.requestPictureInPicture())
 
     function fullscreen() {
         video_player.dataset.fullscreen = document.fullscreenElement == null
 
-        if (document.fullscreenElement == null)
+        if (document.fullscreenElement == null) {
             video_player.requestFullscreen()
-        else
-            document.exitFullscreen()
+
+            return
+        }
+
+        document.exitFullscreen()
     }
 
-    fullscreen_button_element.addEventListener("click", fullscreen)
+    fullscreen_button.addEventListener("click", fullscreen)
     video_player.addEventListener("dblclick", fullscreen)
 
     function update_play_button() {
@@ -143,47 +187,47 @@ const url_search_params = new URLSearchParams(location.search)
     video.addEventListener("play", update_play_button)
     video.addEventListener("pause", update_play_button)
 
-    const progression_slider_element = document.getElementById("video_player_progression_slider")
-    const volume_slider_element = document.getElementById("video_player_volume_slider")
-    const progression_element = document.getElementById("video_player_progression")
-    const duration_element = document.getElementById("video_player_duration")
+    const progress_slider = document.getElementById("video_player_progress_slider")
+    const volume_slider = document.getElementById("video_player_volume_slider")
+    const progress = document.getElementById("video_player_progress")
+    const duration = document.getElementById("video_player_duration")
     let was_paused = video.paused
 
-    duration_element.textContent = duration_to_string(progression_slider_element.max)
+    duration.textContent = duration_to_string(progress_slider.max)
 
-    progression_slider_element.addEventListener("input", () => {
-        progression_element.textContent = duration_to_string(video.currentTime = progression_slider_element.value)
+    progress_slider.addEventListener("input", () => {
+        progress.textContent = duration_to_string(video.currentTime = progress_slider.value)
         update_canvas()
     })
-    progression_slider_element.addEventListener("pointerdown", () => {
+    progress_slider.addEventListener("pointerdown", () => {
         was_paused = video.paused
         video.pause()
 
         function up() {
             was_paused ? video.pause() : video.play()
 
-            progression_slider_element.removeEventListener("pointerup", up)
-            progression_slider_element.removeEventListener("pointerout", up)
+            progress_slider.removeEventListener("pointerup", up)
+            progress_slider.removeEventListener("pointerout", up)
         }
 
-        progression_slider_element.addEventListener("pointerup", up)
-        progression_slider_element.addEventListener("pointerout", up)
+        progress_slider.addEventListener("pointerup", up)
+        progress_slider.addEventListener("pointerout", up)
     })
-    volume_slider_element.addEventListener("input", () => {
-        video.volume = volume_slider_element.value
+    volume_slider.addEventListener("input", () => {
+        video.volume = volume_slider.value
         video.muted = false
     })
 
     video.addEventListener("durationchange", () => {
         if (isFinite(video.duration)) {
             video_metadata.duration = video.duration
-            duration_element.textContent = duration_to_string(progression_slider_element.max = video.duration)
+            duration.textContent = duration_to_string(progress_slider.max = video.duration)
         }
     })
     video.addEventListener("timeupdate", () => {
         localStorage.setItem(`video-progress:${video_metadata.uuid}`, video.currentTime)
-        progression_element.textContent = duration_to_string(progression_slider_element.value = video.currentTime)
-        progression_slider_element.dispatchEvent(new Event("update"))
+        progress.textContent = duration_to_string(progress_slider.value = video.currentTime)
+        progress_slider.dispatchEvent(new Event("update"))
     })
 
     function update_volume_button() {
@@ -196,8 +240,8 @@ const url_search_params = new URLSearchParams(location.search)
     }
 
     video.addEventListener("volumechange", () => {
-        volume_slider_element.value = video.volume
-        volume_slider_element.dispatchEvent(new Event("update"))
+        volume_slider.value = video.volume
+        volume_slider.dispatchEvent(new Event("update"))
 
         update_volume_button()
     })
@@ -213,7 +257,7 @@ const url_search_params = new URLSearchParams(location.search)
             gradients.push(`rgb(var(--color-fixed-light) / .4) ${start}%, rgb(var(--color-secondary) / .7) ${start}%, rgb(var(--color-secondary) / .7) ${end}%, rgb(var(--color-fixed-light) / .4) ${end}%`)
         }
 
-        progression_slider_element.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
+        progress_slider.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
     }
 
     video.addEventListener("progress", update_buffered_progress)

@@ -224,7 +224,7 @@ body {
     flex-grow: 1;
 }
 
-#video_player_progression_slider {
+#video_player_progress_slider {
     width: 100%;
 
     margin-bottom: 1em;

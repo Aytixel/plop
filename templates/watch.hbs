@@ -24,6 +24,7 @@
             date: new $mol_time_moment("{{timestamp}}"),
             duration: +"{{duration}}",
             framerate: +"{{framerate}}",
+            title: "{{title}}",
         }
     </script>
     <script src="/js/watch.js" defer></script>
@@ -45,7 +46,7 @@
                 <div id="video_player_title">{{title}}</div>
                 <div id="video_player_controls">
                     <input type="range" min="0" value="0" max="{{duration}}" step="0.05"
-                        id="video_player_progression_slider" aria-label="Barre de Progression">
+                        id="video_player_progress_slider" aria-label="Barre de Progression">
                     <div>
                         <button id="video_player_play_button" aria-label="Bouton Play">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -77,8 +78,7 @@
                         <input type="range" min="0" max="1" value="1" step="0.05" id="video_player_volume_slider"
                             aria-label="Barre de Volume">
                         <span>
-                            <span id="video_player_progression">0:00</span> / <span
-                                id="video_player_duration">0:00</span>
+                            <span id="video_player_progress">0:00</span> / <span id="video_player_duration">0:00</span>
                         </span>
                         <span class="filler"></span>
                         <button id="video_player_popup_button" aria-label="Bouton Picture-in-Picture">
