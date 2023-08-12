@@ -70,13 +70,15 @@ async fn main() -> anyhow::Result<()> {
             .app_data(state.clone())
             .wrap(cors)
             .wrap(middleware::Compress::default())
+            .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
             .service(service::video::put)
             .service(service::video::uuid::resolution::get)
             .service(service::video::uuid::resolution::post)
             .service(service::watch::get)
             .service(
                 Files::new("/", "./static/")
-                    .use_etag(true)
+                    .use_etag(false)
+                    .use_last_modified(false)
                     .index_file("html/index.html"),
             )
     })

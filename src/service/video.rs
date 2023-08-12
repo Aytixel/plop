@@ -211,8 +211,11 @@ pub mod uuid {
                 "./video/{}/{}.webm",
                 params.resolution, params.uuid
             ))
-            .map_err(|_| ErrorInternalServerError("Unable open the video file"))?
-            .into_response(&request))
+            .map(|file| file.use_etag(false).use_last_modified(false))
+            .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
+            .into_response(&request)
+            .customize()
+            .insert_header(("Cache-Control", "max-age=2592000")))
         }
 
         #[derive(Deserialize, Validate, Debug)]
@@ -250,7 +253,7 @@ pub mod uuid {
                     params.resolution, params.uuid
                 ))
                 .await
-                .map_err(|_| ErrorInternalServerError("Unable to write data"))?;
+                .map_err(|_| ErrorInternalServerError("Unable to open the file"))?;
             let mut has_data = false;
             let mut has_seeked = false;
 

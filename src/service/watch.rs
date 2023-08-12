@@ -55,15 +55,20 @@ async fn get(
         resolutions.push(1440);
     }
 
-    Ok(HttpResponse::Ok().body(
+    const DEFAULT_META_DESCRIPTION: &str =
+        "Apparemment pas de spoil par ici donc pas de description.";
+
+    Ok(HttpResponse::Ok().insert_header(("Cache-Control", "no-cache")).body(
         data.handlebars
             .render(
                 "watch",
                 &json!({
                     "title": video.title,
                     "description": video.description,
-                    "meta_description": video.description.map(|mut description| {
-                        if description.len() > 100 {
+                    "meta_description": video.description.map_or(DEFAULT_META_DESCRIPTION.to_string(), |mut description| {
+                        if description.is_empty() {
+                            DEFAULT_META_DESCRIPTION.to_string()
+                        } else if description.len() > 100 {
                             description.truncate(100);
                             description + "..."
                         } else {
