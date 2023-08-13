@@ -162,8 +162,18 @@ if ("mediaSession" in navigator) {
             play()
     })
     play_button.addEventListener("click", play)
-    volume_button.addEventListener("click", () => video.muted = !video.muted)
-    popup_button.addEventListener("click", () => !video.disablePictureInPicture && video.requestPictureInPicture())
+
+    function mute() {
+        video.muted = !video.muted
+    }
+
+    volume_button.addEventListener("click", mute)
+
+    function picture_in_picture() {
+        !video.disablePictureInPicture && video.requestPictureInPicture()
+    }
+
+    popup_button.addEventListener("click", picture_in_picture)
 
     function fullscreen() {
         video_player.dataset.fullscreen = document.fullscreenElement == null
@@ -263,4 +273,33 @@ if ("mediaSession" in navigator) {
     video.addEventListener("progress", update_buffered_progress)
     video.addEventListener("timeupdate", update_buffered_progress)
     video.addEventListener("play", update_buffered_progress)
+
+    window.addEventListener("keydown", e => {
+        switch (e.code) {
+            case "Space":
+                play()
+                break
+            case "KeyF":
+                fullscreen()
+                break
+            case "KeyP":
+                picture_in_picture()
+                break
+            case "Semicolon":
+                mute()
+                break
+            case "ArrowLeft":
+                video.currentTime = Math.max(video.currentTime - 2, 0)
+                break
+            case "ArrowRight":
+                video.currentTime = Math.min(video.currentTime + 2, video_metadata.duration)
+                break
+            case "ArrowUp":
+                video.volume = Math.min(video.volume + .1, 1)
+                break
+            case "ArrowDown":
+                video.volume = Math.max(video.volume - .1, 0)
+                break
+        }
+    })
 }
