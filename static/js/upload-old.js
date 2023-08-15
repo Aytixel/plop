@@ -75,6 +75,8 @@ function duration_to_string(duration) {
     return string
 }
 
+const video_encode_interval = 2000
+
 function get_video_encode_options_list(width, height, framerate) {
     const aspect_ratio = width / height
 
@@ -104,143 +106,140 @@ function get_video_encode_options_list(width, height, framerate) {
 
 const encoding_bitrate_multiplier = 0.12
 
-function encode_video(url, encode_options_list, callback) {
-    return new Promise((resolve, reject) => {
-        console.log(encode_options_list)
+function encode_video(url, encode_options, callback) {
+    return new Promise(resolve => {
+        const canvas = document.createElement("canvas")
+        const canvas_context = canvas.getContext("2d")
+
+        canvas.width = encode_options.width
+        canvas.height = encode_options.height
 
         const video = document.createElement("video")
+        let running = true
+
+        function update_canvas() {
+            if (running) {
+                canvas_context.drawImage(video, 0, 0, encode_options.width, encode_options.height)
+                requestAnimationFrame(update_canvas)
+            }
+        }
+
+        requestAnimationFrame(update_canvas)
 
         video.src = url
-        video.addEventListener("loadedmetadata", async () => {
-            for (const key in encode_options_list) {
-                const muxer_config = {
-                    target: new WebMMuxer.StreamTarget(
-                        (data, position) => {
-                            callback({
-                                resolution: encode_options_list[key].resolution,
-                                position,
-                                data: data.buffer.slice(0, data.byteLength)
-                            })
-                        },
-                        () => {
-                            setTimeout(() => callback({ resolution: encode_options_list[key].resolution }), 100)
-                            console.log(`${encode_options_list[key].resolution}p encoding finished`)
-                        },
-                        {
-                            chunked: true,
-                            chunkSize: 1_500_000
-                        }
-                    ),
-                    type: "webm",
-                    video: {
-                        codec: 'V_VP9',
-                        width: encode_options_list[key].width,
-                        height: encode_options_list[key].height,
-                        frameRate: encode_options_list[key].framerate,
-                        alpha: false
-                    },
-                    streaming: true,
-                    firstTimestampBehavior: "permissive"
-                }
+        video.onloadedmetadata = () => {
+            const audio_track = video.audioTracks[0]
+            const video_stream = canvas.captureStream(encode_options.framerate)
+            let mime_type = "video/webm;codecs=vp9"
 
-                const muxer = new WebMMuxer.Muxer(muxer_config)
-                const video_encoder = new VideoEncoder({
-                    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-                    error: (error) => reject(error),
-                })
-                const video_encoder_config = {
-                    codec: "vp09.02.10.10.01",
-                    height: encode_options_list[key].height,
-                    width: encode_options_list[key].width,
-                    framerate: encode_options_list[key].framerate,
-                    bitrate: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * encoding_bitrate_multiplier
-                }
-                let video_encoder_configured = false
+            if (audio_track) {
+                mime_type = "video/webm;codecs=\"vp9,opus\""
 
-                async function test_video_encoder_config(hardware_acceleration) {
-                    video_encoder_config.hardwareAcceleration = hardware_acceleration
-
-                    if (!video_encoder_configured && (await VideoEncoder.isConfigSupported(video_encoder_config)).supported) {
-                        video_encoder_configured = true
-                        video_encoder.configure(video_encoder_config)
-                    }
-                }
-
-                await test_video_encoder_config("prefer-hardware")
-                await test_video_encoder_config("prefer-software")
-
-                if (!video_encoder_configured) {
-                    reject("No configuration found")
-
-                    return
-                }
-
-                encode_options_list[key].muxer = muxer
-                encode_options_list[key].video_encoder = video_encoder
-                encode_options_list[key].timestamp = 0
+                video_stream.addTrack(audio_track)
             }
 
-            let frame_count = 0
-            const duration = Math.round(video.duration * 1_000_000)
-            const high_encode_options = encode_options_list[encode_options_list.length - 1]
+            const recorder = new MediaRecorder(video_stream, {
+                audioBitsPerSecond: 128000,
+                videoBitsPerSecond: encode_options.width * encode_options.height * encode_options.framerate * encoding_bitrate_multiplier,
+                mimeType: mime_type
+            })
+            let size = 0
+            let position = 0
 
-            function encode_frame() {
-                async () => {
-                    console.log(`Time : ${video.currentTime}s`)
+            recorder.ondataavailable = e => {
+                position += size
+                size = e.data.size
 
-                    frame_count++
+                callback({ resolution: encode_options.resolution, data: e.data, position })
 
-                    const frame = new VideoFrame(video, {
-                        timestamp: high_encode_options.timestamp,
-                        duration
-                    })
-
-                    for (const encode_options of encode_options_list) {
-                        if (
-                            high_encode_options.framerate == encode_options.framerate
-                            || (video.currentTime * 1_000_000) >= encode_options.timestamp
-                        ) {
-                            encode_options.timestamp = Math.min(encode_options.timestamp + Math.round(1_000_000 / encode_options.framerate), duration)
-
-                            encode_options.video_encoder.encode(frame, {
-                                keyFrame: frame_count % (encode_options.framerate * 4) == 0
-                            })
-                        }
-                    }
-
-                    frame.close()
-
-                    if (high_encode_options.video_encoder.encodeQueueSize > 4)
-                        await high_encode_options.video_encoder.flush()
-
-                    if (video.currentTime != video.duration) {
-                        video.currentTime = high_encode_options.timestamp / 1_000_000
-
-                        return
-                    }
-
-                    // ending frame
-                    for (const encode_options of encode_options_list) {
-                        if (encode_options.video_encoder.state != "closed")
-                            encode_options.video_encoder.close()
-
-                        encode_options.muxer.finalize()
-                    }
-
-                    console.timeEnd("Encode time")
-                    console.log(`Frame count : ${frame_count}`)
-                    video.removeEventListener("timeupdate", encode_frame)
-
-                    resolve()
-                }
+                if (recorder.state == "inactive")
+                    setTimeout(() => callback({ resolution: encode_options.resolution }), 1000)
             }
+            video.onended = () => {
+                running = false
 
-            video.addEventListener("timeupdate", encode_frame)
+                recorder.stop()
 
-            console.time("Encode time")
+                resolve()
+            }
+            video.onplay = () => recorder.start(video_encode_interval)
+            video.play()
+        }
+    })
+}
 
-            video.currentTime = 0
+function encode_multiple_video(url, encode_options_list, callback) {
+    return new Promise(resolve => {
+        const canvas_list = encode_options_list.map(encode_options => {
+            const canvas = document.createElement("canvas")
+
+            canvas.width = encode_options.width
+            canvas.height = encode_options.height
+
+            return {
+                canvas,
+                canvas_context: canvas.getContext("2d")
+            }
         })
+        const video = document.createElement("video")
+        let running = true
+
+        function update_canvas() {
+            if (running) {
+                for (const canvas of canvas_list) {
+                    canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
+                }
+
+                requestAnimationFrame(update_canvas)
+            }
+        }
+
+        requestAnimationFrame(update_canvas)
+
+        video.src = url
+        video.addEventListener("ended", () => running = false)
+        video.onloadedmetadata = () => {
+            const audio_track = video.audioTracks[0]
+            let encoded_video_count = 0
+
+            for (const key in canvas_list) {
+                const video_stream = canvas_list[key].canvas.captureStream(encode_options_list[key].framerate)
+                let mime_type = "video/webm;codecs=vp9"
+
+                if (audio_track) {
+                    mime_type = "video/webm;codecs=\"vp9,opus\""
+
+                    video_stream.addTrack(audio_track)
+                }
+
+                const recorder = new MediaRecorder(video_stream, {
+                    audioBitsPerSecond: 128000,
+                    videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * encoding_bitrate_multiplier,
+                    mimeType: mime_type
+                })
+                let size = 0
+                let position = 0
+
+                recorder.ondataavailable = e => {
+                    position += size
+                    size = e.data.size
+
+                    callback({ resolution: encode_options_list[key].resolution, data: e.data, position })
+
+                    if (recorder.state == "inactive")
+                        setTimeout(() => callback({ resolution: encode_options_list[key].resolution }), 1000)
+                }
+                video.addEventListener("ended", () => {
+                    recorder.stop()
+
+                    if (++encoded_video_count == encode_options_list.length)
+                        resolve()
+                })
+                video.addEventListener("play", () => recorder.start(video_encode_interval))
+            }
+
+            video.play()
+        }
     })
 }
 
@@ -323,20 +322,28 @@ video_upload_form_element.addEventListener("submit", async e => {
         params.tags = form_data.get("tags")
 
     const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
+    const low_video_encode_options_list = video_encode_options_list.filter(video_encode_options => video_encode_options.resolution <= 360)
+    const high_video_encode_options_list = video_encode_options_list.filter(video_encode_options => video_encode_options.resolution > 360)
     const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
 
     async function upload_video_chunk(chunk) {
         chunk.video_uuid = video_uuid
 
-        if (chunk.data)
+        if (chunk.data) {
+            chunk.data = await chunk.data.arrayBuffer()
             worker[0].postMessage(chunk, [chunk.data])
-        else
+        } else {
             worker[0].postMessage(chunk)
+        }
 
         worker.reverse()
     }
 
-    await encode_video(video_element.src, video_encode_options_list, upload_video_chunk)
+    if (low_video_encode_options_list.length)
+        await encode_multiple_video(video_element.src, low_video_encode_options_list, upload_video_chunk)
+
+    for (const video_encode_options of high_video_encode_options_list)
+        await encode_video(video_element.src, video_encode_options, upload_video_chunk)
 
     console.log("Upload finished : " + video_uuid)
 })
