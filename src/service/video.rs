@@ -11,6 +11,8 @@ use actix_web::{
     HttpRequest, Responder,
 };
 use actix_web_validator::{Json, Path};
+use data_url::DataUrl;
+use file_format::FileFormat;
 use fred::{
     prelude::KeysInterface,
     types::{Expiration, RedisValue},
@@ -61,6 +63,7 @@ struct PutVideo {
     framerate: u8,
     #[validate(custom = "valid_resolutions")]
     resolutions: HashSet<u16>,
+    thumbnail: String,
 }
 
 #[put("/video")]
@@ -68,6 +71,17 @@ async fn put(
     payload: Json<PutVideo>,
     data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
+    let thumbnail_data_url = DataUrl::process(&payload.thumbnail)
+        .map_err(|_| ErrorInternalServerError("Unable to process thumbnail data"))?;
+    let thumbnail_data = thumbnail_data_url
+        .decode_to_vec()
+        .map_err(|_| ErrorInternalServerError("Unable to extract thumbnail data"))?
+        .0;
+
+    if FileFormat::from_bytes(&thumbnail_data).media_type() != "image/webp" {
+        return Err(ErrorInternalServerError("Wrong thumbnail mime type"));
+    }
+
     let has_resolution = |resolution| {
         if payload.resolutions.contains(&resolution) {
             VideoUploadState::Uploading
@@ -97,6 +111,19 @@ async fn put(
         .insert(&data.db_connection)
         .await
         .map_err(|_| ErrorInternalServerError("Unable to insert new video"))?;
+
+    create_dir_all(format!("./thumbnail/")).await.ok();
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(format!("./thumbnail/{}.webp", uuid))
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable to open the file"))?;
+
+    file.write(&thumbnail_data)
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable to write data"))?;
 
     Ok(uuid.to_string())
 }

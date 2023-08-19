@@ -44,7 +44,8 @@ function encode_thumbnail(url) {
             canvas.width = width
             canvas.height = height
             canvas_context.drawImage(image, 0, 0, width, height)
-            canvas.toBlob(blob => resolve(blob), "image/webp", 0.75)
+
+            resolve(canvas.toDataURL("image/webp", 0.85))
         }
     })
 }
@@ -179,7 +180,8 @@ video_upload_form_element.addEventListener("submit", async e => {
         title: form_data.get("title"),
         framerate: video_settings.frameRate,
         duration: video_element.duration,
-        resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution)
+        resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution),
+        thumbnail: await encode_thumbnail(thumbnail_element.src),
     };
 
     if (form_data.get("description").length)
@@ -189,6 +191,9 @@ video_upload_form_element.addEventListener("submit", async e => {
         params.tags = form_data.get("tags")
 
     const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
+
+    debugger
+
     const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
 
     async function upload_video_chunk(chunk) {

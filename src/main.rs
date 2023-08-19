@@ -6,6 +6,7 @@ use std::{env, fs::File, io::BufReader};
 use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{middleware, web::Data, App, HttpServer};
+use actix_web_validator::JsonConfig;
 use anyhow::anyhow;
 use fred::{
     prelude::{ClientLike, RedisClient},
@@ -68,6 +69,7 @@ async fn main() -> anyhow::Result<()> {
 
         App::new()
             .app_data(state.clone())
+            .app_data(JsonConfig::default().limit(65536))
             .wrap(cors)
             .wrap(middleware::Compress::default())
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))

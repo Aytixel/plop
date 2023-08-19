@@ -26,14 +26,15 @@
             <img src="" alt="Miniature de la vidéo" width="640" height="360" id="thumbnail">
             <label for="thumbnail_filepicker">
                 Choisir une miniature
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker">
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker"
+                    required>
             </label>
         </div>
         <div id="video_player">
             <video src="" width="640" height="360" id="video" preload="auto"></video>
             <label for="video_filepicker">
                 Choisir une vidéo
-                <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker">
+                <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker" required>
             </label>
             <span>
                 <span id="video_width">0</span>x<span id="video_height">0</span> <span id="video_framerate">0</span>fps
