@@ -114,16 +114,14 @@ async fn put(
 
     create_dir_all(format!("./thumbnail/")).await.ok();
 
-    let mut file = OpenOptions::new()
+    if let Ok(mut file) = OpenOptions::new()
         .write(true)
         .create(true)
         .open(format!("./thumbnail/{}.webp", uuid))
         .await
-        .map_err(|_| ErrorInternalServerError("Unable to open the file"))?;
-
-    file.write(&thumbnail_data)
-        .await
-        .map_err(|_| ErrorInternalServerError("Unable to write data"))?;
+    {
+        file.write(&thumbnail_data).await.ok();
+    }
 
     Ok(uuid.to_string())
 }
@@ -132,6 +130,8 @@ pub mod uuid {
     use super::*;
 
     pub mod resolution {
+        use tokio::fs::remove_file;
+
         use super::*;
 
         fn get_resolution(resolution: u16) -> actix_web::Result<video::Column> {
@@ -272,13 +272,11 @@ pub mod uuid {
                 .await
                 .ok();
 
+            let path = format!("./video/{}/{}.webm", params.resolution, params.uuid);
             let mut file = OpenOptions::new()
                 .write(true)
                 .create(true)
-                .open(format!(
-                    "./video/{}/{}.webm",
-                    params.resolution, params.uuid
-                ))
+                .open(&path)
                 .await
                 .map_err(|_| ErrorInternalServerError("Unable to open the file"))?;
             let mut has_data = false;
@@ -309,17 +307,29 @@ pub mod uuid {
             }
 
             if !has_data {
+                let video_file_format = FileFormat::from_file(&path)
+                    .map_err(|_| ErrorInternalServerError("Unable to open the file"))?;
+                let video_upload_state = if video_file_format.media_type() == "video/webm"
+                    || video_file_format.media_type() == "application/x-ebml"
+                {
+                    VideoUploadState::Available
+                } else {
+                    remove_file(&path).await.ok();
+
+                    VideoUploadState::Unavailable
+                };
+
                 data.redis_client
                     .set::<RedisValue, _, _>(
                         format!("video:{}:{}", params.uuid, params.resolution),
-                        VideoUploadState::Available.to_string(),
+                        video_upload_state.to_string(),
                         Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
                         None,
                         false,
                     )
                     .await
                     .ok();
-                video.set(resolution_column, VideoUploadState::Available.into());
+                video.set(resolution_column, video_upload_state.into());
                 video
                     .update(&data.db_connection)
                     .await
