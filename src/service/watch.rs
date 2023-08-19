@@ -1,3 +1,4 @@
+use ::uuid::Uuid;
 use actix_web::{
     error::{ErrorInternalServerError, ErrorNotFound},
     get,
@@ -8,7 +9,6 @@ use actix_web_validator::Path;
 use sea_orm::EntityTrait;
 use serde::Deserialize;
 use serde_json::json;
-use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
@@ -16,49 +16,51 @@ use crate::{
     AppState,
 };
 
-#[derive(Deserialize, Validate, Debug)]
-struct GetWatch {
-    uuid: Uuid,
-}
-
-#[get("/watch/{uuid}")]
-async fn get(
-    params: Path<GetWatch>,
-    data: Data<AppState<'_>>,
-) -> actix_web::Result<impl Responder> {
-    let video = video::Entity::find_by_id(params.uuid)
-        .one(&data.db_connection)
-        .await
-        .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
-        .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
-    let mut resolutions = Vec::new();
-
-    if video.state_144p == VideoUploadState::Available {
-        resolutions.push(144);
-    }
-    if video.state_240p == VideoUploadState::Available {
-        resolutions.push(240);
-    }
-    if video.state_360p == VideoUploadState::Available {
-        resolutions.push(360);
-    }
-    if video.state_480p == VideoUploadState::Available {
-        resolutions.push(480);
-    }
-    if video.state_720p == VideoUploadState::Available {
-        resolutions.push(720);
-    }
-    if video.state_1080p == VideoUploadState::Available {
-        resolutions.push(1080);
-    }
-    if video.state_1440p == VideoUploadState::Available {
-        resolutions.push(1440);
+pub mod uuid {
+    use super::*;
+    #[derive(Deserialize, Validate, Debug)]
+    struct GetWatch {
+        uuid: Uuid,
     }
 
-    const DEFAULT_META_DESCRIPTION: &str =
-        "Apparemment pas de spoil par ici donc pas de description.";
+    #[get("/watch/{uuid}")]
+    async fn get(
+        params: Path<GetWatch>,
+        data: Data<AppState<'_>>,
+    ) -> actix_web::Result<impl Responder> {
+        let video = video::Entity::find_by_id(params.uuid)
+            .one(&data.db_connection)
+            .await
+            .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
+            .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
+        let mut resolutions = Vec::new();
 
-    Ok(HttpResponse::Ok().insert_header(("Cache-Control", "no-cache")).body(
+        if video.state_144p == VideoUploadState::Available {
+            resolutions.push(144);
+        }
+        if video.state_240p == VideoUploadState::Available {
+            resolutions.push(240);
+        }
+        if video.state_360p == VideoUploadState::Available {
+            resolutions.push(360);
+        }
+        if video.state_480p == VideoUploadState::Available {
+            resolutions.push(480);
+        }
+        if video.state_720p == VideoUploadState::Available {
+            resolutions.push(720);
+        }
+        if video.state_1080p == VideoUploadState::Available {
+            resolutions.push(1080);
+        }
+        if video.state_1440p == VideoUploadState::Available {
+            resolutions.push(1440);
+        }
+
+        const DEFAULT_META_DESCRIPTION: &str =
+            "Apparemment pas de spoil par ici donc pas de description.";
+
+        Ok(HttpResponse::Ok().insert_header(("Cache-Control", "no-cache")).body(
         data.handlebars
             .render(
                 "watch",
@@ -86,4 +88,5 @@ async fn get(
             )
             .unwrap(),
     ))
+    }
 }
