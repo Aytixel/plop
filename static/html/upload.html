@@ -12,24 +12,29 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
     <title>Mise en ligne de contenue</title>
-    <script src="https://www.unpkg.com/webm-muxer@3.1/build/webm-muxer.js"></script>
-    <script src="/js/upload.js" async defer></script>
+    <script src="/js/upload.js" type="module"></script>
 </head>
 
 <body>
     <form id="video_upload_form">
         <div>
-            <input type="text" minlength="1" maxlength="100" name="title" required>
-            <input type="text" maxlength="5000" name="description">
-            <input type="text" maxlength="500" name="tags">
+            <input type="text" minlength="1" maxlength="100" name="title" placeholder="Titre" required>
+            <textarea maxlength="5000" name="description" placeholder="Description"></textarea>
+            <input type="text" maxlength="500" name="tags" placeholder="Tags">
         </div>
         <div id="thumbnail_container">
-            <img src="" alt="The video thumbnail" width="640" height="360" id="thumbnail">
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker">
+            <img src="" alt="Miniature de la vidéo" width="640" height="360" id="thumbnail">
+            <label for="thumbnail_filepicker">
+                Choisir une miniature
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker">
+            </label>
         </div>
         <div id="video_player">
             <video src="" width="640" height="360" id="video" preload="auto"></video>
-            <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker">
+            <label for="video_filepicker">
+                Choisir une vidéo
+                <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker">
+            </label>
             <span>
                 <span id="video_width">0</span>x<span id="video_height">0</span> <span id="video_framerate">0</span>fps
             </span>
@@ -40,6 +45,10 @@
                 <span id="video_timespan">0:00</span> / <span id="video_duration">0:00</span>
             </div>
         </div>
+        <select id="encoder_selection">
+            <option value="low" selected>Encoder basse qualité</option>
+            <option value="high" disabled>Encoder haute qualité</option>
+        </select>
         <input type="submit" value="Transcoder et télécharger la vidéo">
     </form>
 </body>
