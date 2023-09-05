@@ -87,6 +87,10 @@ body {
     opacity: 1;
 }
 
+#video_player[data-paused="false"] :is(#video_player_overlay[data-show="false"] *, #video_player_overlay[data-show="false"]) {
+    cursor: none;
+}
+
 #video_player:fullscreen :where(video, #video_player_overlay) {
     border-radius: 0;
 }
