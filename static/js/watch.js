@@ -297,6 +297,9 @@ if ("mediaSession" in navigator) {
     video.addEventListener("play", update_buffered_progress)
 
     window.addEventListener("keydown", e => {
+        if (["Space", "KeyF", "KeyP", "Semicolon", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].indexOf(e.code) != -1)
+            e.preventDefault()
+
         switch (e.code) {
             case "Space":
                 play()
