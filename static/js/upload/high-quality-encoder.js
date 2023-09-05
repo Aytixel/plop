@@ -1,4 +1,4 @@
-import { default as WebMMuxer } from "https://cdn.jsdelivr.net/npm/webm-muxer@3.1/+esm"
+import { Muxer, StreamTarget } from "https://cdn.jsdelivr.net/npm/webm-muxer@3.1/+esm"
 
 function encode_audio(url, audio_config, callback) {
     return new Promise((resolve, reject) => {
@@ -77,7 +77,7 @@ function encode_video(url, encode_options_list, callback) {
             // setup video encoder and the muxer
             for (const key in encode_options_list) {
                 const muxer_config = {
-                    target: new WebMMuxer.StreamTarget(
+                    target: new StreamTarget(
                         (data, position) => {
                             callback({
                                 resolution: encode_options_list[key].resolution,
@@ -110,7 +110,7 @@ function encode_video(url, encode_options_list, callback) {
                         codec: "A_OPUS"
                     })
 
-                const muxer = new WebMMuxer.Muxer(muxer_config)
+                const muxer = new Muxer(muxer_config)
                 const video_encoder = new VideoEncoder({
                     output: (chunk, metadata) => muxer.addVideoChunk(chunk, metadata),
                     error: reject,

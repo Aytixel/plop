@@ -191,9 +191,6 @@ video_upload_form_element.addEventListener("submit", async e => {
         params.tags = form_data.get("tags")
 
     const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
-
-    debugger
-
     const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
 
     async function upload_video_chunk(chunk) {

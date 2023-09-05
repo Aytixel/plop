@@ -112,7 +112,7 @@ async fn put(
         .await
         .map_err(|_| ErrorInternalServerError("Unable to insert new video"))?;
 
-    create_dir_all(format!("./thumbnail/")).await.ok();
+    create_dir_all("./thumbnail/".to_string()).await.ok();
 
     if let Ok(mut file) = OpenOptions::new()
         .write(true)
