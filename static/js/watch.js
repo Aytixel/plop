@@ -28,9 +28,10 @@ TimeAgo.addDefaultLocale(await(await fetch("https://unpkg.com/javascript-time-ag
 
 const time_ago = new TimeAgo('fr')
 
-// video description
+// video info
 {
-    const vues = document.getElementById("vues")
+    const description = document.getElementById("video_info_description")
+    const vues = document.getElementById("video_info_vues")
 
     if (video_metadata.vues >= 0 && video_metadata.vues < 1000)
         vues.textContent = video_metadata.vues + (video_metadata.vues > 1 ? " vues" : " vue")
@@ -41,9 +42,19 @@ const time_ago = new TimeAgo('fr')
     else
         vues.textContent = (Math.round(video_metadata.vues / 100000000) / 10) + " Md de vues"
 
-    const time = document.getElementById("time")
+    const time = document.getElementById("video_info_time")
 
     time.textContent = time_ago.format(video_metadata.date.valueOf())
+
+    const show_more_button = document.getElementById("video_info_show_more_button")
+
+    show_more_button.addEventListener("click", () => {
+        const content = show_more_button.textContent
+
+        show_more_button.textContent = show_more_button.dataset.switch_content
+        show_more_button.dataset.switch_content = content
+        description.classList.toggle("open")
+    })
 }
 
 // media session

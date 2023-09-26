@@ -103,14 +103,33 @@
                 </div>
             </div>
         </section>
-        <section>
-            <h1 id="title">{{title}}</h1>
-            <div id="description">
-                <span id="vues"></span>
-                <time id="time" datetime="{{timestamp}}"></time>
-                <p>{{description}}</p>
+        <section id="video_info">
+            <h1 id="video_info_title">{{title}}</h1>
+            <div id="video_info_description">
+                <div>
+                    <span id="video_info_vues"></span>
+                    <time id="video_info_time" datetime="{{timestamp}}"></time>
+                    <span>
+                        {{#each tags_short as |tag|}}
+                        <a href="#">#{{tag}}</a>
+                        {{/each}}
+                    </span>
+                </div>
+                <p>
+                    {{description}}
+                    {{#if tags}}
+                    <br>
+                    <br>
+                    {{/if}}
+                    {{#each tags as |tag|}}
+                    <a href="#">#{{tag}}</a>
+                    {{/each}}
+                </p>
+                <button id="video_info_show_more_button" data-switch_content="...afficher moins">...afficher
+                    plus</button>
             </div>
         </section>
+        <footer></footer>
     </main>
 </body>
 
