@@ -1,5 +1,21 @@
-@import url('https://fonts.cdnfonts.com/css/marianne');
+@font-face {
+    font-family: "Marianne";
+    src: url("/font/Marianne-Regular.woff2") format("woff2"),
+        url("/font/Marianne-Regular.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Marianne";
+    src: url("/font/Marianne-Bold.woff2") format("woff2"),
+        url("/font/Marianne-Bold.woff") format("woff");
+    font-weight: bold;
+    font-style: bold;
+    font-display: swap;
+}
 
 * {
-    font-family: 'Marianne', sans-serif;
+    font-family: "Marianne", sans-serif;
 }
