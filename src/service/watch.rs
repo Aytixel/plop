@@ -5,7 +5,7 @@ use actix_web::{
     web::Data,
     HttpResponse, Responder,
 };
-use actix_web_validator::Path;
+use actix_web_validator5::Path;
 use sea_orm::EntityTrait;
 use serde::Deserialize;
 use serde_json::json;

@@ -6,15 +6,15 @@ use std::{env, fs::File, io::BufReader};
 use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{middleware, web::Data, App, HttpServer};
-use actix_web_validator::JsonConfig;
+use actix_web_validator5::JsonConfig;
 use anyhow::anyhow;
 use fred::{
     prelude::{ClientLike, RedisClient},
     types::{PerformanceConfig, ReconnectPolicy, RedisConfig},
 };
-use handlebars::Handlebars;
-use rustls::{Certificate, PrivateKey, ServerConfig};
-use rustls_pemfile::{certs, pkcs8_private_keys};
+use handlebars::{DirectorySourceOptions, Handlebars};
+use rustls::ServerConfig;
+use rustls_pemfile::{certs, private_key};
 use sea_orm::{Database, DatabaseConnection};
 pub trait AnyhowResult<T>: Sized {
     fn anyhow(self) -> anyhow::Result<T>;
@@ -49,14 +49,26 @@ async fn main() -> anyhow::Result<()> {
     let redis_config = RedisConfig::from_url(&redis_url)?;
     let redis_performance = PerformanceConfig::default();
     let redis_policy = ReconnectPolicy::default();
-    let redis_client = RedisClient::new(redis_config, Some(redis_performance), Some(redis_policy));
+    let redis_client = RedisClient::new(
+        redis_config,
+        Some(redis_performance),
+        None,
+        Some(redis_policy),
+    );
 
     redis_client.connect();
     redis_client.wait_for_connect().await?;
 
     let mut handlebars = Handlebars::new();
 
-    handlebars.register_templates_directory(".hbs", "./templates")?;
+    handlebars.register_templates_directory(
+        "./templates",
+        DirectorySourceOptions {
+            tpl_extension: ".hbs".to_string(),
+            hidden: false,
+            temporary: false,
+        },
+    )?;
 
     let state = Data::new(AppState {
         db_connection,
@@ -85,29 +97,22 @@ async fn main() -> anyhow::Result<()> {
                     .index_file("html/index.html"),
             )
     })
-    .bind_rustls(format!("{host}:{port}"), load_rustls_config()?)?
+    .bind_rustls_0_22(format!("{host}:{port}"), load_rustls_config()?)?
     .run()
     .await
     .anyhow()
 }
 
 fn load_rustls_config() -> anyhow::Result<ServerConfig> {
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth();
-    let cert_chain = certs(&mut BufReader::new(File::open("cert/cert.pem")?))?
-        .into_iter()
-        .map(Certificate)
+    let config = ServerConfig::builder().with_no_client_auth();
+    let cert_chain = certs(&mut BufReader::new(File::open("cert/cert.pem")?))
+        .filter_map(Result::ok)
         .collect();
-    let mut keys: Vec<PrivateKey> =
-        pkcs8_private_keys(&mut BufReader::new(File::open("cert/key.pem")?))?
-            .into_iter()
-            .map(PrivateKey)
-            .collect();
+    let key_option = private_key(&mut BufReader::new(File::open("cert/key.pem")?))?;
 
-    if keys.is_empty() {
-        return Err(anyhow!("Could not locate PKCS 8 private keys."));
+    if let Some(key) = key_option {
+        config.with_single_cert(cert_chain, key).anyhow()
+    } else {
+        Err(anyhow!("Could not locate private key."))
     }
-
-    config.with_single_cert(cert_chain, keys.remove(0)).anyhow()
 }

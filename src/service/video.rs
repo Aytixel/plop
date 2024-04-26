@@ -10,7 +10,7 @@ use actix_web::{
     web::{Data, Header, Payload},
     HttpRequest, Responder,
 };
-use actix_web_validator::{Json, Path};
+use actix_web_validator5::{Json, Path};
 use data_url::DataUrl;
 use file_format::FileFormat;
 use fred::{
@@ -57,11 +57,11 @@ struct PutVideo {
     description: Option<String>,
     #[validate(length(min = 0, max = 500))]
     tags: Option<String>,
-    #[validate(range(min = 0))]
+    #[validate(range(min = 0.0))]
     duration: f64,
     #[validate(range(min = 1, max = 60))]
     framerate: u8,
-    #[validate(custom = "valid_resolutions")]
+    #[validate(custom(function = "valid_resolutions"))]
     resolutions: HashSet<u16>,
     thumbnail: String,
 }
@@ -130,6 +130,7 @@ pub mod uuid {
     use super::*;
 
     pub mod resolution {
+        use sea_orm::ActiveEnum;
         use tokio::fs::remove_file;
 
         use super::*;
@@ -177,7 +178,7 @@ pub mod uuid {
             data.redis_client
                 .set::<RedisValue, _, _>(
                     format!("video:{}:{}", uuid, resolution),
-                    resolution_video_upload_state.to_string(),
+                    resolution_video_upload_state.to_value().to_string(),
                     Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
                     None,
                     false,
@@ -195,7 +196,7 @@ pub mod uuid {
         #[derive(Deserialize, Validate, Debug)]
         struct GetVideo {
             uuid: Uuid,
-            #[validate(custom = "valid_resolution")]
+            #[validate(custom(function = "valid_resolution"))]
             resolution: u16,
         }
 
@@ -218,7 +219,7 @@ pub mod uuid {
                         .await
                         .ok();
 
-                    if availability != VideoUploadState::Available.to_string() {
+                    if availability != VideoUploadState::Available.to_value().to_string() {
                         return Err(ErrorNotFound("Unable to find a video with this resolution"));
                     }
                 }
@@ -248,7 +249,7 @@ pub mod uuid {
         #[derive(Deserialize, Validate, Debug)]
         struct PostVideo {
             uuid: Uuid,
-            #[validate(custom = "valid_resolution")]
+            #[validate(custom(function = "valid_resolution"))]
             resolution: u16,
         }
 
@@ -322,7 +323,7 @@ pub mod uuid {
                 data.redis_client
                     .set::<RedisValue, _, _>(
                         format!("video:{}:{}", params.uuid, params.resolution),
-                        video_upload_state.to_string(),
+                        video_upload_state.to_value().to_string(),
                         Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
                         None,
                         false,

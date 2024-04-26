@@ -1,7 +1,7 @@
 use ::uuid::Uuid;
 use actix_files::NamedFile;
 use actix_web::{error::ErrorInternalServerError, get, HttpRequest, Responder};
-use actix_web_validator::Path;
+use actix_web_validator5::Path;
 use serde::Deserialize;
 use validator::Validate;
 
