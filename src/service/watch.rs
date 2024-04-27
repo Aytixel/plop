@@ -83,8 +83,11 @@ pub mod uuid {
                     "duration": video.duration,
                     "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
                     "uuid": video.uuid,
-                    "resolution": resolutions.iter().max(),
-                    "resolutions": resolutions,
+                    "resolutions": resolutions
+                    .iter()
+                    .map(i32::to_string)
+                    .collect::<Vec<String>>()
+                    .join(", "),
                     "vues": video.vues
                 }),
             )

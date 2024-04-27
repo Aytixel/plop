@@ -25,6 +25,7 @@
             duration: +"{{duration}}",
             framerate: +"{{framerate}}",
             title: "{{title}}",
+            resolutions: [{{ resolutions }}]
         }
     </script>
     <script type="module" src="/js/watch.js"></script>
@@ -35,12 +36,7 @@
         <section id="video_player" data-ambient_light="true" data-paused="true" data-volume="high"
             data-fullscreen="false">
             <canvas width="256" height="144"></canvas>
-            <video src="/video/{{uuid}}/{{resolution}}" data-resolution="{{resolution}}" autoplay="" playsinline=""
-                width="1280" height="720">
-                {{#each resolutions as |resolution|}}
-                <source src="/video/{{../uuid}}/{{resolution}}" data-resolution="{{resolution}}" type="video/webm">
-                {{/each}}
-            </video>
+            <video playsinline="" width="1280" height="720" type="video/webm"></video>
             <div id="video_player_overlay" data-show="false">
                 <div id="video_player_title">{{title}}</div>
                 <div id="video_player_controls">
@@ -125,7 +121,7 @@
                     <a href="#">#{{tag}}</a>
                     {{/each}}
                 </p>
-                <button id="video_info_show_more_button" data-switch_content="...afficher moins">...afficher
+                <button id="video_info_show_more" data-switch_content="Moins">...afficher
                     plus</button>
             </div>
         </section>

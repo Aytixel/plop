@@ -329,7 +329,7 @@ a {
     overflow-y: inherit;
 }
 
-#video_info_show_more_button {
+#video_info_show_more {
     margin-top: .25em;
 
     appearance: none;

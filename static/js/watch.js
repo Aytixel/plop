@@ -1,4 +1,4 @@
-let battery_high = true
+window.battery_high = true
 
 if (navigator.getBattery) navigator.getBattery().then((battery) => {
     function update() {
@@ -22,320 +22,375 @@ function debounce(callback, delay) {
     }
 }
 
-const url_search_params = new URLSearchParams(location.search)
-
 TimeAgo.addDefaultLocale(await(await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
 
 const time_ago = new TimeAgo('fr')
 
-// video info
-{
-    const description = document.getElementById("video_info_description")
-    const vues = document.getElementById("video_info_vues")
+class VideoInfo {
+    #description = document.getElementById("video_info_description")
+    #vues = document.getElementById("video_info_vues")
+    #time = document.getElementById("video_info_time")
+    #show_more = document.getElementById("video_info_show_more")
 
-    if (video_metadata.vues >= 0 && video_metadata.vues < 1000)
-        vues.textContent = video_metadata.vues + (video_metadata.vues > 1 ? " vues" : " vue")
-    else if (video_metadata.vues < 1000000)
-        vues.textContent = (Math.round(video_metadata.vues / 100) / 10) + " k"
-    else if (video_metadata.vues < 1000000000)
-        vues.textContent = (Math.round(video_metadata.vues / 100000) / 10) + " M de vues"
-    else
-        vues.textContent = (Math.round(video_metadata.vues / 100000000) / 10) + " Md de vues"
+    #info = {
+        show_more: false,
+        date: null,
+        vues: null,
+    }
 
-    const time = document.getElementById("video_info_time")
+    constructor(video_metadata) {
+        this.date = video_metadata.date
+        this.vues = video_metadata.vues
 
-    time.textContent = time_ago.format(video_metadata.date.valueOf())
+        this.#show_more.addEventListener("click", () => this.show_more = !this.show_more)
+    }
 
-    const show_more_button = document.getElementById("video_info_show_more_button")
+    set show_more(show_more) {
+        if (this.#info.show_more != !!show_more) {
+            const content = this.#show_more.textContent
 
-    show_more_button.addEventListener("click", () => {
-        const content = show_more_button.textContent
+            this.#show_more.textContent = this.#show_more.dataset.switch_content
+            this.#show_more.dataset.switch_content = content
+            this.#description.classList.toggle("open")
+            this.#info.show_more = !!show_more
+        }
+    }
 
-        show_more_button.textContent = show_more_button.dataset.switch_content
-        show_more_button.dataset.switch_content = content
-        description.classList.toggle("open")
-    })
+    get show_more() {
+        return this.#info.show_more
+    }
+
+    set date(date) {
+        if (this.#info.date != date && date instanceof $mol_time_moment) {
+            this.#time.textContent = time_ago.format(date.valueOf())
+            this.#info.date = date
+        }
+    }
+
+    get date() {
+        return this.#info.date
+    }
+
+    set vues(vues) {
+        if (this.#info.vues != vues && typeof vues === "number") {
+            if (vues >= 0 && vues < 1000)
+                this.#vues.textContent = vues + (vues > 1 ? " vues" : " vue")
+            else if (vues < 1000000)
+                this.#vues.textContent = (Math.round(vues / 100) / 10) + " k vues"
+            else if (vues < 1000000000)
+                this.#vues.textContent = (Math.round(vues / 100000) / 10) + " M de vues"
+            else
+                this.#vues.textContent = (Math.round(vues / 100000000) / 10) + " Md de vues"
+
+            this.#info.vues = vues
+        }
+    }
+
+    get vues() {
+        return this.#info.vues
+    }
 }
 
-// media session
-if ("mediaSession" in navigator) {
-    const video = document.getElementById("video_player").children[1]
+window.video_info = new VideoInfo(video_metadata)
 
-    video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
-    video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
-    video.addEventListener("timeupdate", () => navigator.mediaSession.setPositionState({
-        duration: video_metadata.duration,
-        playbackRate: video.playbackRate,
-        position: video.currentTime
-    }))
+class VideoPlayer {
+    #video_player = document.getElementById("video_player")
+    #canvas = this.#video_player.children[0]
+    #context = this.#canvas.getContext("2d")
+    #compute_canvas = this.#canvas.cloneNode()
+    #compute_context = this.#compute_canvas.getContext("2d")
+    #video = this.#video_player.children[1]
+    #overlay = document.getElementById("video_player_overlay")
+    #play_button = document.getElementById("video_player_play_button")
+    #volume_button = document.getElementById("video_player_volume_button")
+    #popup_button = document.getElementById("video_player_popup_button")
+    #fullscreen_button = document.getElementById("video_player_fullscreen_button")
+    #progress_slider = document.getElementById("video_player_progress_slider")
+    #volume_slider = document.getElementById("video_player_volume_slider")
+    #progress = document.getElementById("video_player_progress")
+    #duration = document.getElementById("video_player_duration")
 
-    navigator.mediaSession.setPositionState({
-        duration: video_metadata.duration,
-        playbackRate: video.playbackRate,
-        position: video.currentTime
-    })
-    navigator.mediaSession.playbackState = video.paused ? "paused" : "playing"
-    navigator.mediaSession.metadata = new MediaMetadata({
-        title: video_metadata.title
-    })
-    navigator.mediaSession.setActionHandler("play", () => video.play())
-    navigator.mediaSession.setActionHandler("pause", () => video.pause())
-    navigator.mediaSession.setActionHandler("stop", () => {
-        video.pause()
-        video.currentTime = 0
-    })
-    navigator.mediaSession.setActionHandler("seekbackward", (details) => video.currentTime -= details.seekOffset || 2)
-    navigator.mediaSession.setActionHandler("seekforward", (details) => video.currentTime += details.seekOffset || 2)
-    navigator.mediaSession.setActionHandler("seekto", (details) => {
-        if (details.fastSeek && 'fastSeek' in video) {
-            video.fastSeek(details.seekTime)
+    #metadata = {
+        uuid: null,
+        duration: null,
+        resolutions: null,
+    }
 
-            return
+    constructor(video_metadata, start_time = parseFloat(new URLSearchParams(location.search).get("t"))) {
+        this.#metadata.uuid = video_metadata.uuid
+        this.#metadata.duration = video_metadata.duration
+        this.#metadata.resolutions = video_metadata.resolutions
+
+        // setup media session
+        if ("mediaSession" in navigator) {
+            this.#video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
+            this.#video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
+            this.#video.addEventListener("timeupdate", () => navigator.mediaSession.setPositionState({
+                duration: this.#metadata.duration,
+                playbackRate: this.#video.playbackRate,
+                position: this.current_time
+            }))
+
+            navigator.mediaSession.setPositionState({
+                duration: this.#metadata.duration,
+                playbackRate: this.#video.playbackRate,
+                position: this.current_time
+            })
+            navigator.mediaSession.playbackState = this.paused ? "paused" : "playing"
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: video_metadata.title
+            })
+            navigator.mediaSession.setActionHandler("play", () => this.#video.play())
+            navigator.mediaSession.setActionHandler("pause", () => this.#video.pause())
+            navigator.mediaSession.setActionHandler("stop", () => {
+                this.#video.pause()
+                this.current_time = 0
+            })
+            navigator.mediaSession.setActionHandler("seekbackward", (details) => this.current_time -= details.seekOffset || 2)
+            navigator.mediaSession.setActionHandler("seekforward", (details) => this.current_time += details.seekOffset || 2)
+            navigator.mediaSession.setActionHandler("seekto", (details) => {
+                if (details.fastSeek && "fastSeek" in HTMLMediaElement.prototype)
+                    this.#video.fastSeek(details.seekTime)
+                else
+                    this.current_time = details.seekTime
+            })
         }
 
-        video.currentTime = details.seekTime
-    })
-}
+        // set video start time
+        if (!(start_time >= 0 && start_time <= this.#metadata.duration))
+            start_time = parseFloat(localStorage.getItem(`video-progress:${this.uuid}`, this.current_time)) || 0
+        if (start_time < this.#metadata.duration - 1)
+            this.current_time = start_time
 
-// video player
-{
-    document.getElementById("video_player_controls").querySelectorAll("input[type='range']").forEach(element => {
+        // listen whether to show or not the overlay
+        const hide_overlay = debounce(() => this.#overlay.dataset.show = false, 2000)
+
+        this.#overlay.addEventListener("pointermove", () => {
+            if (this.#overlay.dataset.show == "false") {
+                this.#overlay.dataset.show = true
+
+                hide_overlay()
+            }
+        })
+        this.#overlay.addEventListener("pointerout", () => this.#overlay.dataset.show = false)
+
+        // listen on play request
+        const play = () => this.paused = !this.paused
+
+        this.#overlay.addEventListener("click", e => e.target == this.#overlay && play())
+        this.#play_button.addEventListener("click", play)
+
+        // listen on mute request
+        const mute = () => this.muted = !this.muted
+
+        this.#volume_button.addEventListener("click", mute)
+
+        // listen on picture in picture request
+        this.#popup_button.addEventListener("click", this.picture_in_picture)
+        this.#popup_button.hidden = !("requestPictureInPicture" in HTMLVideoElement.prototype)
+
+        // listen on fullscreen request
+        const fullscreen = () => this.#video_player.dataset.fullscreen = this.fullscreen = !this.fullscreen
+
+        this.#fullscreen_button.addEventListener("click", fullscreen)
+        this.#video_player.addEventListener("dblclick", fullscreen)
+
+        // setup sliders and listen on sliders inputs
+        this.#init_input_range(this.#progress_slider)
+        this.#init_input_range(this.#volume_slider)
+        this.#update_time()
+        this.#update_volume()
+
+        let was_paused = this.paused
+
+        this.#duration.textContent = this.#duration_to_string(this.#progress_slider.max)
+
+        this.#progress_slider.addEventListener("input", () => this.current_time = this.#progress_slider.value)
+        this.#progress_slider.addEventListener("pointerdown", () => {
+            was_paused = this.paused
+            this.paused = true
+
+            const up = () => {
+                this.paused = was_paused
+
+                this.#progress_slider.removeEventListener("pointerup", up)
+                this.#progress_slider.removeEventListener("pointerout", up)
+            }
+
+            this.#progress_slider.addEventListener("pointerup", up)
+            this.#progress_slider.addEventListener("pointerout", up)
+        })
+        this.#volume_slider.addEventListener("input", () => this.volume = this.#volume_slider.value)
+
+        // listen on video event and update ui
+        const update_play_button = () => this.#video_player.dataset.paused = this.paused
+
+        this.#video.addEventListener("play", update_play_button)
+        this.#video.addEventListener("pause", update_play_button)
+        this.#video.addEventListener("durationchange", () => {
+            if (isFinite(this.duration))
+                this.#duration.textContent = this.#duration_to_string(this.#progress_slider.max = this.#metadata.duration = this.duration)
+        })
+        this.#video.addEventListener("timeupdate", () => this.#update_time())
+        this.#video.addEventListener("volumechange", () => this.#update_volume())
+
+        // update ui on buffer progress
+        const update_buffer_progress = () => {
+            const gradients = []
+
+            for (let i = 0; i < this.#video.buffered.length; i++) {
+                const start = this.#video.buffered.start(i) / this.duration * 100
+                const end = this.#video.buffered.end(i) / this.duration * 100
+
+                gradients.push(`rgb(var(--color-fixed-light) / .4) ${start}%, rgb(var(--color-secondary) / .7) ${start}%, rgb(var(--color-secondary) / .7) ${end}%, rgb(var(--color-fixed-light) / .4) ${end}%`)
+            }
+
+            this.#progress_slider.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
+        }
+
+        this.#video.addEventListener("progress", update_buffer_progress)
+        this.#video.addEventListener("timeupdate", update_buffer_progress)
+        this.#video.addEventListener("play", update_buffer_progress)
+
+        // update ambient light canvas
+        this.#context.globalAlpha = .05
+
+        setInterval(() => !this.paused && this.#update_canvas(), 2000)
+        setInterval(() => {
+            this.#video_player.dataset.ambient_light = !this.fullscreen && battery_high
+
+            if (this.#video_player.dataset.ambient_light == "true")
+                requestAnimationFrame(() => this.#context.drawImage(this.#compute_canvas, 0, 0, this.#canvas.width, this.#canvas.height))
+        }, 100)
+
+        this.#video.addEventListener("loadeddata", () => setTimeout(() => this.#update_canvas(), 100))
+
+        // key bindings
+        window.addEventListener("keydown", e => {
+            const key_bindings = {
+                " ": play,
+                f: fullscreen,
+                p: this.picture_in_picture,
+                m: mute,
+                ArrowLeft: () => this.current_time = Math.max(this.current_time - 2, 0),
+                ArrowRight: () => this.current_time = Math.min(this.current_time + 2, this.duration),
+                ArrowUp: () => this.volume = Math.min(this.volume + .1, 1),
+                ArrowDown: () => this.volume = Math.max(this.volume - .1, 0),
+            }
+
+            if (e.key in key_bindings)
+                e.preventDefault()
+
+            key_bindings[e.key]()
+        })
+    }
+
+    get uuid() {
+        return this.#metadata.uuid
+    }
+
+    get duration() {
+        return this.#metadata.duration
+    }
+
+    get resolutions() {
+        return this.#metadata.resolutions
+    }
+
+    set current_time(current_time) {
+        this.#video.currentTime = current_time
+        this.#update_time()
+    }
+
+    get current_time() {
+        return this.#video.currentTime
+    }
+
+    set paused(paused) {
+        paused ? this.#video.pause() : this.#video.play()
+    }
+
+    get paused() {
+        return this.#video.paused
+    }
+
+    set muted(muted) {
+        this.#video.muted = muted
+        this.#update_volume()
+    }
+
+    get muted() {
+        return this.#video.muted
+    }
+
+    set volume(volume) {
+        this.muted = false
+        this.#video.volume = volume
+        this.#update_volume()
+    }
+
+    get volume() {
+        return this.#video.volume
+    }
+
+    set fullscreen(fullscreen) {
+        if (this.fullscreen != fullscreen) {
+            if (fullscreen)
+                this.#video_player.requestFullscreen()
+            else
+                document.exitFullscreen()
+        }
+    }
+
+    get fullscreen() {
+        return document.fullscreenElement != null
+    }
+
+    picture_in_picture() {
+        "requestPictureInPicture" in HTMLVideoElement.prototype && !this.#video.disablePictureInPicture && this.#video.requestPictureInPicture()
+    }
+
+    #update_time() {
+        localStorage.setItem(`video-progress:${this.uuid}`, this.current_time)
+
+        this.#progress.textContent = this.#duration_to_string(this.#progress_slider.value = this.current_time)
+        this.#progress_slider.dispatchEvent(new Event("update"))
+        this.#update_canvas()
+    }
+
+    #update_volume() {
+        if (this.muted) {
+            this.#video_player.dataset.volume = "muted"
+            this.#volume_slider.value = 0
+        } else {
+            this.#video_player.dataset.volume = this.volume > .5 ? "high" : this.volume > 0 ? "low" : "muted"
+            this.#volume_slider.value = this.volume
+        }
+
+        this.#volume_slider.dispatchEvent(new Event("update"))
+    }
+
+    #init_input_range(element) {
         function update() {
             requestAnimationFrame(() => element.style.setProperty("--range-position", element.value / element.max * 100 + "%"))
         }
 
-        function down() {
-            element.addEventListener("pointermove", move)
-            element.addEventListener("pointerup", up)
-            element.addEventListener("pointerout", up)
-        }
-
-        function move(e) {
-            const rect = element.getBoundingClientRect()
-
-            element.value = (e.clientX - rect.x) / (rect.width - rect.x) * element.max
-        }
-
-        function up() {
-            element.removeEventListener("pointermove", move)
-            element.removeEventListener("pointerup", up)
-            element.removeEventListener("pointerout", up)
-        }
-
         element.addEventListener("input", update)
         element.addEventListener("update", update)
-        element.addEventListener("pointerdown", down)
 
         update()
-    })
+    }
 
-    function duration_to_string(duration) {
+    #duration_to_string(duration) {
         const string = `${Math.floor(duration / 60 % 60)}:${(Math.round(duration) % 60).toString().padStart(2, 0)}`
 
-        if (duration >= 3600)
-            return Math.floor(duration / 3600) + ":" + string.padStart(5, 0)
-
-        return string
+        return duration >= 3600 ? Math.floor(duration / 3600) + ":" + string.padStart(5, 0) : string
     }
 
-    const video_player = document.getElementById("video_player")
-    const canvas = video_player.children[0]
-    const context = canvas.getContext("2d")
-    const compute_canvas = canvas.cloneNode()
-    const compute_context = compute_canvas.getContext("2d")
-    const video = video_player.children[1]
-    let start_time = parseFloat(url_search_params.get("t"))
-
-    if (!(start_time >= 0 && start_time <= video_metadata.duration))
-        start_time = parseFloat(localStorage.getItem(`video-progress:${video_metadata.uuid}`, video.currentTime)) || 0
-
-    if (start_time < video_metadata.duration - 1)
-        video.currentTime = start_time
-
-    context.globalAlpha = .05
-
-    function update_canvas() {
-        if (video_player.dataset.ambient_light == "true")
-            setTimeout(() => requestAnimationFrame(() => compute_context.drawImage(video, 0, 0, compute_canvas.width, compute_canvas.height)), 500)
+    #update_canvas() {
+        if (this.#video_player.dataset.ambient_light == "true")
+            setTimeout(() => requestAnimationFrame(() => this.#compute_context.drawImage(this.#video, 0, 0, this.#compute_canvas.width, this.#compute_canvas.height)), 500)
     }
-
-    setInterval(() => !video.paused && update_canvas(), 2000)
-    setInterval(() => {
-        video_player.dataset.ambient_light = document.fullscreenElement == null && battery_high
-
-        if (video_player.dataset.ambient_light == "true")
-            requestAnimationFrame(() => context.drawImage(compute_canvas, 0, 0, canvas.width, canvas.height))
-    }, 100)
-
-    video.addEventListener("loadeddata", () => setTimeout(update_canvas, 100))
-
-    const overlay = document.getElementById("video_player_overlay")
-    const play_button = document.getElementById("video_player_play_button")
-    const volume_button = document.getElementById("video_player_volume_button")
-    const popup_button = document.getElementById("video_player_popup_button")
-    const fullscreen_button = document.getElementById("video_player_fullscreen_button")
-
-    const hide_overlay = debounce(() => overlay.dataset.show = false, 2000)
-
-    overlay.addEventListener("pointermove", () => {
-        if (overlay.dataset.show == "false") {
-            overlay.dataset.show = true
-
-            hide_overlay()
-        }
-    })
-    overlay.addEventListener("pointerout", () => overlay.dataset.show = false)
-
-    function play() {
-        video.paused ? video.play() : video.pause()
-    }
-
-    overlay.addEventListener("click", e => {
-        if (e.target == overlay)
-            play()
-    })
-    play_button.addEventListener("click", play)
-
-    function mute() {
-        video.muted = !video.muted
-    }
-
-    volume_button.addEventListener("click", mute)
-
-    function picture_in_picture() {
-        !video.disablePictureInPicture && video.requestPictureInPicture()
-    }
-
-    popup_button.addEventListener("click", picture_in_picture)
-
-    function fullscreen() {
-        video_player.dataset.fullscreen = document.fullscreenElement == null
-
-        if (document.fullscreenElement == null) {
-            video_player.requestFullscreen()
-
-            return
-        }
-
-        document.exitFullscreen()
-    }
-
-    fullscreen_button.addEventListener("click", fullscreen)
-    video_player.addEventListener("dblclick", fullscreen)
-
-    function update_play_button() {
-        video_player.dataset.paused = video.paused
-    }
-
-    video.addEventListener("play", update_play_button)
-    video.addEventListener("pause", update_play_button)
-
-    const progress_slider = document.getElementById("video_player_progress_slider")
-    const volume_slider = document.getElementById("video_player_volume_slider")
-    const progress = document.getElementById("video_player_progress")
-    const duration = document.getElementById("video_player_duration")
-    let was_paused = video.paused
-
-    duration.textContent = duration_to_string(progress_slider.max)
-
-    progress_slider.addEventListener("input", () => {
-        progress.textContent = duration_to_string(video.currentTime = progress_slider.value)
-        update_canvas()
-    })
-    progress_slider.addEventListener("pointerdown", () => {
-        was_paused = video.paused
-        video.pause()
-
-        function up() {
-            was_paused ? video.pause() : video.play()
-
-            progress_slider.removeEventListener("pointerup", up)
-            progress_slider.removeEventListener("pointerout", up)
-        }
-
-        progress_slider.addEventListener("pointerup", up)
-        progress_slider.addEventListener("pointerout", up)
-    })
-    volume_slider.addEventListener("input", () => {
-        video.volume = volume_slider.value
-        video.muted = false
-    })
-
-    video.addEventListener("durationchange", () => {
-        if (isFinite(video.duration)) {
-            video_metadata.duration = video.duration
-            duration.textContent = duration_to_string(progress_slider.max = video.duration)
-        }
-    })
-    video.addEventListener("timeupdate", () => {
-        localStorage.setItem(`video-progress:${video_metadata.uuid}`, video.currentTime)
-        progress.textContent = duration_to_string(progress_slider.value = video.currentTime)
-        progress_slider.dispatchEvent(new Event("update"))
-    })
-
-    function update_volume_button() {
-        if (video.muted) {
-            video_player.dataset.volume = "muted"
-            return
-        }
-
-        video_player.dataset.volume = video.volume > .5 ? "high" : video.volume > 0 ? "low" : "muted"
-    }
-
-    video.addEventListener("volumechange", () => {
-        volume_slider.value = video.volume
-        volume_slider.dispatchEvent(new Event("update"))
-
-        update_volume_button()
-    })
-
-    function update_buffered_progress() {
-        const gradients = []
-
-        for (let i = 0; i < video.buffered.length; i++) {
-
-            const start = video.buffered.start(i) / video_metadata.duration * 100
-            const end = video.buffered.end(i) / video_metadata.duration * 100
-
-            gradients.push(`rgb(var(--color-fixed-light) / .4) ${start}%, rgb(var(--color-secondary) / .7) ${start}%, rgb(var(--color-secondary) / .7) ${end}%, rgb(var(--color-fixed-light) / .4) ${end}%`)
-        }
-
-        progress_slider.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
-    }
-
-    video.addEventListener("progress", update_buffered_progress)
-    video.addEventListener("timeupdate", update_buffered_progress)
-    video.addEventListener("play", update_buffered_progress)
-
-    window.addEventListener("keydown", e => {
-        if (["Space", "KeyF", "KeyP", "Semicolon", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].indexOf(e.code) != -1)
-            e.preventDefault()
-
-        switch (e.code) {
-            case "Space":
-                play()
-                break
-            case "KeyF":
-                fullscreen()
-                break
-            case "KeyP":
-                picture_in_picture()
-                break
-            case "Semicolon":
-                mute()
-                break
-            case "ArrowLeft":
-                video.currentTime = Math.max(video.currentTime - 2, 0)
-                break
-            case "ArrowRight":
-                video.currentTime = Math.min(video.currentTime + 2, video_metadata.duration)
-                break
-            case "ArrowUp":
-                video.volume = Math.min(video.volume + .1, 1)
-                break
-            case "ArrowDown":
-                video.volume = Math.max(video.volume - .1, 0)
-                break
-        }
-    })
 }
+
+window.video_player = new VideoPlayer(video_metadata)
