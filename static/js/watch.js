@@ -186,7 +186,7 @@ class VideoPlayer {
         this.#volume_button.addEventListener("click", mute)
 
         // listen on picture in picture request
-        this.#popup_button.addEventListener("click", this.picture_in_picture)
+        this.#popup_button.addEventListener("click", () => this.picture_in_picture())
         this.#popup_button.hidden = !("requestPictureInPicture" in HTMLVideoElement.prototype)
 
         // listen on fullscreen request
@@ -270,7 +270,7 @@ class VideoPlayer {
             const key_bindings = {
                 " ": play,
                 f: fullscreen,
-                p: this.picture_in_picture,
+                p: () => this.picture_in_picture(),
                 m: mute,
                 ArrowLeft: () => this.current_time = Math.max(this.current_time - 2, 0),
                 ArrowRight: () => this.current_time = Math.min(this.current_time + 2, this.duration),
