@@ -283,6 +283,56 @@ class VideoPlayer {
 
             key_bindings[e.key]()
         })
+
+        // load and manage video strem
+        const media_source = new MediaSource()
+        const min_chunk_size = 50_000
+        let source_buffer
+        let start = 0
+        let length = min_chunk_size
+        let resolution = 6
+        const speeds = []
+        let speeds_index = 0
+
+        const fetch_video_chunk = async () => {
+            const t0 = Date.now()
+            const response = await fetch(`/video/${this.#metadata.uuid}/${this.#metadata.resolutions[resolution]}`, {
+                headers: {
+                    range: `bytes=${start}-${start + length - 1}`
+                }
+            })
+            const data = await response.arrayBuffer()
+            const t1 = new Date(+response.headers.get("x-precise-time")).getTime()
+            const t2 = Date.now()
+            const latency = (t2 - t0) / 2
+            const speed = data.byteLength * 8 * (1_000 / (t2 - t1)) / 1_000_000
+
+            speeds[speeds_index++] = speed
+
+            if (speeds_index == 5)
+                speeds_index = 0
+
+            source_buffer.appendBuffer(data)
+            console.log(Math.round(speed * 100) / 100, "Mbps", Math.round(latency * 100) / 100, "ms")
+
+            if (data.byteLength == length) {
+                start += length
+
+                if (speeds.length < 2)
+                    length *= 2
+                else
+                    length = Math.max(Math.round(length * ((speed - speeds.reduce((acc, speed) => acc + speed) / speeds.length) / 8 + 1) * Math.exp((200 / Math.max(Math.min(latency, 380), 20) - 1) / 2)), min_chunk_size)
+
+                fetch_video_chunk()
+            }
+        }
+
+        media_source.addEventListener("sourceopen", () => {
+            source_buffer = media_source.addSourceBuffer("video/webm;codecs=\"vp9\"")
+            fetch_video_chunk()
+        })
+
+        this.#video.src = URL.createObjectURL(media_source)
     }
 
     get uuid() {

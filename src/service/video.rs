@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io::SeekFrom};
+use std::{collections::HashSet, io::SeekFrom, time::SystemTime};
 
 use ::uuid::Uuid;
 use actix_files::NamedFile;
@@ -17,10 +17,10 @@ use fred::{
     prelude::KeysInterface,
     types::{Expiration, RedisValue},
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+use sea_orm::{ActiveEnum, ActiveModelTrait, EntityTrait, Set};
 use serde::Deserialize;
 use tokio::{
-    fs::{create_dir_all, OpenOptions},
+    fs::{create_dir_all, remove_file, OpenOptions},
     io::{AsyncSeekExt, AsyncWriteExt},
 };
 use tokio_stream::StreamExt;
@@ -130,9 +130,6 @@ pub mod uuid {
     use super::*;
 
     pub mod resolution {
-        use sea_orm::ActiveEnum;
-        use tokio::fs::remove_file;
-
         use super::*;
 
         fn get_resolution(resolution: u16) -> actix_web::Result<video::Column> {
@@ -243,6 +240,14 @@ pub mod uuid {
             .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
             .into_response(&request)
             .customize()
+            .append_header((
+                "X-Precise-Time",
+                SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .map_err(|_| ErrorInternalServerError("Unable to get system time"))?
+                    .as_millis()
+                    .to_string(),
+            ))
             .insert_header(("Cache-Control", "max-age=2592000")))
         }
 
