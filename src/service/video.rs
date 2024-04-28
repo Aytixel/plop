@@ -1,4 +1,4 @@
-use std::{collections::HashSet, io::SeekFrom, time::SystemTime};
+use std::{collections::HashSet, io::SeekFrom};
 
 use ::uuid::Uuid;
 use actix_files::NamedFile;
@@ -240,14 +240,6 @@ pub mod uuid {
             .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
             .into_response(&request)
             .customize()
-            .append_header((
-                "X-Precise-Time",
-                SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .map_err(|_| ErrorInternalServerError("Unable to get system time"))?
-                    .as_millis()
-                    .to_string(),
-            ))
             .insert_header(("Cache-Control", "max-age=2592000")))
         }
 

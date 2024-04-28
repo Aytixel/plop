@@ -9,6 +9,7 @@ use actix_web_validator5::Path;
 use sea_orm::EntityTrait;
 use serde::Deserialize;
 use serde_json::json;
+use tokio::fs::metadata;
 use validator::Validate;
 
 use crate::{
@@ -18,6 +19,7 @@ use crate::{
 
 pub mod uuid {
     use super::*;
+
     #[derive(Deserialize, Validate, Debug)]
     struct GetWatch {
         uuid: Uuid,
@@ -57,6 +59,18 @@ pub mod uuid {
             resolutions.push(1440);
         }
 
+        let mut lengths = Vec::new();
+        let mut bitrates = Vec::new();
+
+        for resolution in resolutions.iter() {
+            let length = metadata(format!("./video/{}/{}.webm", resolution, params.uuid))
+                .await?
+                .len();
+
+            lengths.push(length);
+            bitrates.push(length as f64 / video.duration)
+        }
+
         const DEFAULT_META_DESCRIPTION: &str =
             "Apparemment pas de spoil par ici donc pas de description.";
 
@@ -83,11 +97,10 @@ pub mod uuid {
                     "duration": video.duration,
                     "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
                     "uuid": video.uuid,
-                    "resolutions": resolutions
-                    .iter()
-                    .map(i32::to_string)
-                    .collect::<Vec<String>>()
-                    .join(", "),
+                    "resolutions": resolutions,
+                    "lengths": lengths,
+                    "bitrates": bitrates,
+                    "has_audio": video.has_audio,
                     "vues": video.vues
                 }),
             )

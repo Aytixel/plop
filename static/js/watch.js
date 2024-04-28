@@ -93,6 +93,113 @@ class VideoInfo {
 
 window.video_info = new VideoInfo(video_metadata)
 
+class VideoSource extends MediaSource {
+    #video_player
+    #source_buffer
+    #min_chunk_size = 50_000
+    #target_download_latency = 500
+    #loading = false
+    #resolution
+    #length = this.#min_chunk_size
+    #start = 0
+    #data_buffer = []
+
+    constructor(video_player) {
+        super()
+
+        this.#video_player = video_player
+        this.resolution = video_player.resolutions.length - 1
+
+        this.addEventListener("sourceopen", () => {
+            this.#source_buffer = this.addSourceBuffer(`video/webm;codecs=\"vp9${this.#video_player.has_audio ? ",opus" : ""}\"`)
+            this.#source_buffer.mode = "segments"
+            this.#source_buffer.appendWindowStart = 0
+            this.#source_buffer.appendWindowEnd = video_player.duration
+            this.duration = video_player.duration
+
+            this.#source_buffer.addEventListener("updateend", () => {
+                while (this.#data_buffer.length)
+                    this.#source_buffer.appendBuffer(this.#data_buffer.shift())
+            })
+
+            this.start()
+        })
+    }
+
+    set resolution(resolution) {
+        this.#resolution = resolution
+    }
+
+    get resolution() {
+        return this.#video_player.resolutions[this.#resolution]
+    }
+
+    get length() {
+        return this.#video_player.lengths[this.#resolution]
+    }
+
+    get bitrate() {
+        return this.#video_player.bitrates[this.#resolution]
+    }
+
+    get #continue() {
+        return this.#start < this.length && (
+            (this.#video_player.current_time / this.#video_player.duration)
+            > ((this.#start / this.length) - (5 / this.#video_player.duration))
+        )
+    }
+
+    start() {
+        if (!this.#loading && this.#continue) {
+            this.#loading = true
+
+            this.#fetch()
+        }
+    }
+
+    #log(speed, download_latency, request_latency) {
+        console.log(
+            this.resolution.toString() +
+            "p, " +
+            (Math.round((speed * 8 / 1_000_000) * 100) / 100).toString() +
+            "Mbps, download : " +
+            (Math.round(download_latency * 100) / 100).toString() +
+            "ms, request : " +
+            (Math.round(request_latency * 100) / 100).toString() +
+            "ms"
+        )
+    }
+
+    async #fetch() {
+        const t0 = Date.now()
+        const response = await fetch(`/video/${this.#video_player.uuid}/${this.resolution}`, { headers: { range: `bytes=${this.#start}-${this.#start + this.#length - 1}` } })
+        const t1 = Date.now()
+        const data = await response.arrayBuffer()
+        const t2 = Date.now()
+        const request_latency = Math.max(t1 - t0, 1)
+        const download_latency = Math.max(t2 - t1, 1)
+        const speed = data.byteLength * 1_000 / download_latency
+
+        if (this.#source_buffer.updating)
+            this.#data_buffer.push(data)
+        else
+            this.#source_buffer.appendBuffer(data)
+
+        this.#log(speed, download_latency, request_latency)
+        this.#resolution = this.#video_player.bitrates.findLastIndex(bitrate => bitrate * 1.1 < speed), speed, this.#video_player.bitrates
+        this.#start += this.#length
+
+        if (this.#continue) {
+            this.#length = speed / 1000 * this.#target_download_latency
+            this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size), this.length - this.#start))
+
+            this.#fetch()
+        } else {
+            this.#loading = false
+        }
+    }
+}
+
 class VideoPlayer {
     #video_player = document.getElementById("video_player")
     #canvas = this.#video_player.children[0]
@@ -114,25 +221,31 @@ class VideoPlayer {
         uuid: null,
         duration: null,
         resolutions: null,
+        lengths: null,
+        bitrates: null,
+        has_audio: null
     }
 
     constructor(video_metadata, start_time = parseFloat(new URLSearchParams(location.search).get("t"))) {
         this.#metadata.uuid = video_metadata.uuid
         this.#metadata.duration = video_metadata.duration
         this.#metadata.resolutions = video_metadata.resolutions
+        this.#metadata.lengths = video_metadata.lengths
+        this.#metadata.bitrates = video_metadata.bitrates
+        this.#metadata.has_audio = video_metadata.has_audio
 
         // setup media session
         if ("mediaSession" in navigator) {
             this.#video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
             this.#video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
             this.#video.addEventListener("timeupdate", () => navigator.mediaSession.setPositionState({
-                duration: this.#metadata.duration,
+                duration: this.duration,
                 playbackRate: this.#video.playbackRate,
                 position: this.current_time
             }))
 
             navigator.mediaSession.setPositionState({
-                duration: this.#metadata.duration,
+                duration: this.duration,
                 playbackRate: this.#video.playbackRate,
                 position: this.current_time
             })
@@ -157,9 +270,9 @@ class VideoPlayer {
         }
 
         // set video start time
-        if (!(start_time >= 0 && start_time <= this.#metadata.duration))
+        if (!(start_time >= 0 && start_time <= this.duration))
             start_time = parseFloat(localStorage.getItem(`video-progress:${this.uuid}`, this.current_time)) || 0
-        if (start_time < this.#metadata.duration - 1)
+        if (start_time < this.duration - 1)
             this.current_time = start_time
 
         // listen whether to show or not the overlay
@@ -278,61 +391,19 @@ class VideoPlayer {
                 ArrowDown: () => this.volume = Math.max(this.volume - .1, 0),
             }
 
-            if (e.key in key_bindings)
+            if (e.key in key_bindings) {
                 e.preventDefault()
 
-            key_bindings[e.key]()
-        })
-
-        // load and manage video strem
-        const media_source = new MediaSource()
-        const min_chunk_size = 50_000
-        let source_buffer
-        let start = 0
-        let length = min_chunk_size
-        let resolution = 6
-        const speeds = []
-        let speeds_index = 0
-
-        const fetch_video_chunk = async () => {
-            const t0 = Date.now()
-            const response = await fetch(`/video/${this.#metadata.uuid}/${this.#metadata.resolutions[resolution]}`, {
-                headers: {
-                    range: `bytes=${start}-${start + length - 1}`
-                }
-            })
-            const data = await response.arrayBuffer()
-            const t1 = new Date(+response.headers.get("x-precise-time")).getTime()
-            const t2 = Date.now()
-            const latency = (t2 - t0) / 2
-            const speed = data.byteLength * 8 * (1_000 / (t2 - t1)) / 1_000_000
-
-            speeds[speeds_index++] = speed
-
-            if (speeds_index == 5)
-                speeds_index = 0
-
-            source_buffer.appendBuffer(data)
-            console.log(Math.round(speed * 100) / 100, "Mbps", Math.round(latency * 100) / 100, "ms")
-
-            if (data.byteLength == length) {
-                start += length
-
-                if (speeds.length < 2)
-                    length *= 2
-                else
-                    length = Math.max(Math.round(length * ((speed - speeds.reduce((acc, speed) => acc + speed) / speeds.length) / 8 + 1) * Math.exp((200 / Math.max(Math.min(latency, 380), 20) - 1) / 2)), min_chunk_size)
-
-                fetch_video_chunk()
+                key_bindings[e.key]()
             }
-        }
-
-        media_source.addEventListener("sourceopen", () => {
-            source_buffer = media_source.addSourceBuffer("video/webm;codecs=\"vp9\"")
-            fetch_video_chunk()
         })
 
-        this.#video.src = URL.createObjectURL(media_source)
+        // load and manage video stream
+        const video_source = new VideoSource(this)
+
+        this.#video.addEventListener("timeupdate", () => video_source.start())
+
+        this.#video.src = URL.createObjectURL(video_source)
     }
 
     get uuid() {
@@ -345,6 +416,18 @@ class VideoPlayer {
 
     get resolutions() {
         return this.#metadata.resolutions
+    }
+
+    get lengths() {
+        return this.#metadata.lengths
+    }
+
+    get bitrates() {
+        return this.#metadata.bitrates
+    }
+
+    get has_audio() {
+        return this.#metadata.has_audio
     }
 
     set current_time(current_time) {

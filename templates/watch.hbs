@@ -18,15 +18,19 @@
     <script src="https://unpkg.com/mol_time_all@1.1/web.js"></script>
     <script src="https://unpkg.com/javascript-time-ago@2.5/bundle/javascript-time-ago.js"></script>
     <script>
-        const video_metadata = {
-            uuid: "{{uuid}}",
-            vues: +"{{vues}}",
-            date: new $mol_time_moment("{{timestamp}}"),
-            duration: +"{{duration}}",
-            framerate: +"{{framerate}}",
-            title: "{{title}}",
-            resolutions: [{{ resolutions }}]
-        }
+        const video_metadata = JSON.parse(`{
+            "uuid": "{{uuid}}",
+            "vues": {{vues}},
+            "duration": {{duration}},
+            "framerate": {{framerate}},
+            "title": "{{title}}",
+            "resolutions": {{ resolutions }},
+            "lengths": {{ lengths }},
+            "bitrates": {{ bitrates }},
+            "has_audio": {{ has_audio }}
+        }`)
+
+        video_metadata.date = new $mol_time_moment("{{timestamp}}")
     </script>
     <script type="module" src="/js/watch.js"></script>
 </head>
