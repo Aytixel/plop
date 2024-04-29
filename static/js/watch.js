@@ -96,13 +96,14 @@ window.video_info = new VideoInfo(video_metadata)
 class VideoSource extends MediaSource {
     #video_player
     #source_buffer
+    #resolution
     #min_chunk_size = 50_000
     #target_download_latency = 500
+    request_latency = 0
+    download_latency = 0
     #loading = false
-    #resolution
     #length = this.#min_chunk_size
     #start = 0
-    #data_buffer = []
 
     constructor(video_player) {
         super()
@@ -116,11 +117,6 @@ class VideoSource extends MediaSource {
             this.#source_buffer.appendWindowStart = 0
             this.#source_buffer.appendWindowEnd = video_player.duration
             this.duration = video_player.duration
-
-            this.#source_buffer.addEventListener("updateend", () => {
-                while (this.#data_buffer.length)
-                    this.#source_buffer.appendBuffer(this.#data_buffer.shift())
-            })
 
             this.start()
         })
@@ -153,7 +149,7 @@ class VideoSource extends MediaSource {
         if (!this.#loading && this.#continue) {
             this.#loading = true
 
-            this.#fetch()
+            this.#next_segment()
         }
     }
 
@@ -170,32 +166,101 @@ class VideoSource extends MediaSource {
         )
     }
 
-    async #fetch() {
-        const t0 = Date.now()
-        const response = await fetch(`/video/${this.#video_player.uuid}/${this.resolution}`, { headers: { range: `bytes=${this.#start}-${this.#start + this.#length - 1}` } })
-        const t1 = Date.now()
-        const data = await response.arrayBuffer()
-        const t2 = Date.now()
-        const request_latency = Math.max(t1 - t0, 1)
-        const download_latency = Math.max(t2 - t1, 1)
-        const speed = data.byteLength * 1_000 / download_latency
+    #set_timeout(key, callback) {
+        const abort_controller = new AbortController()
+        const signal = abort_controller.signal
 
-        if (this.#source_buffer.updating)
-            this.#data_buffer.push(data)
+        if (this[key])
+            return {
+                timeout_id: setTimeout(() => {
+                    this[key] = 0
+                    abort_controller.abort("Request timeout : certainly due to a change in connection speed.")
+
+                    if (callback) callback()
+                }, this[key] * 2),
+                signal
+            }
         else
+            return {
+                timeout_id: null,
+                signal
+            }
+    }
+
+    #clear_timeout(timeout_id) {
+        if (timeout_id != null) clearTimeout(timeout_id)
+    }
+
+    async #fetch() {
+        const { timeout_id, signal } = this.#set_timeout("request_latency", () => {
+            this.#length = Math.round(Math.max(this.#length / 2, this.#min_chunk_size))
+
+            this.#next_segment()
+        })
+        const t0 = Date.now()
+        const response = await fetch(`/video/${this.#video_player.uuid}/${this.resolution}`, {
+            headers: { range: `bytes=${this.#start}-${this.#start + this.#length - 1}` },
+            signal
+        })
+        const t1 = Date.now()
+
+        this.#clear_timeout(timeout_id)
+
+        return { response, request_latency: this.request_latency = Math.max(t1 - t0, 1) }
+    }
+
+    async #read(response) {
+        const { timeout_id, signal } = this.#set_timeout("download_latency")
+        const reader = response.body.getReader()
+        let data = new Uint8Array(0)
+        const t2 = Date.now()
+
+        while (!signal.aborted) {
+            const { value, done } = await reader.read()
+
+            if (done) break
+
+            const temp_data = new Uint8Array(data.byteLength + value.byteLength)
+
+            temp_data.set(data, 0)
+            temp_data.set(value, data.byteLength)
+
+            data = temp_data
+        }
+
+        const t3 = Date.now()
+        const download_latency = this.download_latency = Math.max(t3 - t2, 1)
+
+        reader.releaseLock()
+        this.#clear_timeout(timeout_id)
+
+        return { data, download_latency, speed: data.byteLength * 1_000 / download_latency }
+    }
+
+    async #next_segment() {
+        try {
+            const { response, request_latency } = await this.#fetch()
+            const { data, download_latency, speed } = await this.#read(response)
+
+            this.#log(speed, download_latency, request_latency)
+            this.#resolution = this.#video_player.bitrates.findLastIndex(bitrate => bitrate * 1.1 < speed), speed, this.#video_player.bitrates
+
+            this.#source_buffer.onupdateend = () => {
+                this.#start += data.byteLength
+
+                if (this.#continue) {
+                    this.#length = speed / 1000 * this.#target_download_latency
+                    this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size), this.length - this.#start))
+
+                    this.#next_segment()
+                } else {
+                    this.#loading = false
+                }
+            }
+
             this.#source_buffer.appendBuffer(data)
-
-        this.#log(speed, download_latency, request_latency)
-        this.#resolution = this.#video_player.bitrates.findLastIndex(bitrate => bitrate * 1.1 < speed), speed, this.#video_player.bitrates
-        this.#start += this.#length
-
-        if (this.#continue) {
-            this.#length = speed / 1000 * this.#target_download_latency
-            this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size), this.length - this.#start))
-
-            this.#fetch()
-        } else {
-            this.#loading = false
+        } catch (error) {
+            console.warn(error)
         }
     }
 }
