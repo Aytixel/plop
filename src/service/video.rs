@@ -299,7 +299,7 @@ pub mod uuid {
             let mut video_keyframe_buffer = Vec::new();
             let mut audio_keyframe_buffer = Vec::new();
 
-            // mux befoer the first keyframe
+            // mux before from the last keyframe to the first frame
             fn mux_start(
                 track: &mut Option<(u64, impl Track)>,
                 keyframe_buffer: &mut Vec<Rc<Frame>>,
