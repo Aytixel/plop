@@ -1,14 +1,18 @@
-use std::{collections::HashSet, io::SeekFrom};
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::{Cursor, SeekFrom},
+    rc::Rc,
+};
 
 use ::uuid::Uuid;
-use actix_files::NamedFile;
 use actix_web::{
-    error::{ErrorInternalServerError, ErrorNotFound},
+    error::{ErrorInternalServerError, ErrorNotFound, ErrorRangeNotSatisfiable},
     get,
-    http::header,
+    http::{header, StatusCode},
     post, put,
     web::{Data, Header, Payload},
-    HttpRequest, Responder,
+    HttpRequest, HttpResponse, Responder,
 };
 use actix_web_validator5::{Json, Path};
 use data_url::DataUrl;
@@ -17,6 +21,7 @@ use fred::{
     prelude::KeysInterface,
     types::{Expiration, RedisValue},
 };
+use matroska_demuxer::{Frame, MatroskaFile, TrackType};
 use sea_orm::{ActiveEnum, ActiveModelTrait, EntityTrait, Set};
 use serde::Deserialize;
 use tokio::{
@@ -25,6 +30,7 @@ use tokio::{
 };
 use tokio_stream::StreamExt;
 use validator::{Validate, ValidationError};
+use webm::mux::{AudioCodecId, Segment, Track, VideoCodecId, Writer};
 
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
@@ -195,14 +201,22 @@ pub mod uuid {
             uuid: Uuid,
             #[validate(custom(function = "valid_resolution"))]
             resolution: u16,
+            start_timestamp: u64,
+            end_timestamp: u64,
         }
 
-        #[get("/video/{uuid}/{resolution}")]
+        #[get("/video/{uuid}/{resolution}/{start_timestamp}/{end_timestamp}")]
         async fn get(
             request: HttpRequest,
             params: Path<GetVideo>,
             data: Data<AppState<'_>>,
         ) -> actix_web::Result<impl Responder> {
+            if params.end_timestamp < params.start_timestamp {
+                return Err(ErrorRangeNotSatisfiable(
+                    "End timestamp is lower than start timestamp",
+                ));
+            }
+
             let resolution_column = get_resolution(params.resolution)?;
             let mut is_cached = false;
             let video_key = format!("video:{}:{}", params.uuid, params.resolution);
@@ -232,15 +246,234 @@ pub mod uuid {
                 .await?;
             }
 
-            Ok(NamedFile::open(format!(
-                "./video/{}/{}.webm",
-                params.resolution, params.uuid
-            ))
-            .map(|file| file.use_etag(false).use_last_modified(false))
-            .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
-            .into_response(&request)
-            .customize()
-            .insert_header(("Cache-Control", "max-age=2592000")))
+            let mut buffer = Vec::new();
+            let writer = Writer::new(Cursor::new(&mut buffer));
+            let mut segment = Segment::new(writer)
+                .ok_or(ErrorInternalServerError("Unable to create video segment"))?;
+            let mut file = MatroskaFile::open(
+                File::open(format!(
+                    "./video/{}/{}.webm",
+                    params.resolution, params.uuid
+                ))
+                .map_err(|_| ErrorInternalServerError("Unable to open the file"))?,
+            )
+            .map_err(|_| ErrorInternalServerError("Unable to read the file"))?;
+            let tracks = file.tracks();
+            let mut video_track = tracks
+                .iter()
+                .find(|track| track.track_type() == TrackType::Video)
+                .map(|track| {
+                    let video = track.video().unwrap();
+
+                    (
+                        track.track_number().get(),
+                        segment.add_video_track(
+                            video.pixel_width().get() as u32,
+                            video.pixel_height().get() as u32,
+                            None,
+                            VideoCodecId::VP9,
+                        ),
+                    )
+                });
+            let mut audio_track = tracks
+                .iter()
+                .find(|track| track.track_type() == TrackType::Audio)
+                .map(|track| {
+                    let audio = track.audio().unwrap();
+
+                    (
+                        track.track_number().get(),
+                        segment.add_audio_track(
+                            (audio.sampling_frequency() * 1000.0) as i32,
+                            audio.channels().get() as i32,
+                            None,
+                            AudioCodecId::Opus,
+                        ),
+                    )
+                });
+
+            let timescale = file.info().timestamp_scale().get();
+            let mut processing_track = (video_track.is_some(), audio_track.is_some());
+            let mut start_timestamp = params.start_timestamp;
+            let mut end_timestamp = params.end_timestamp;
+            let mut video_keyframe_buffer = Vec::new();
+            let mut audio_keyframe_buffer = Vec::new();
+
+            // mux befoer the first keyframe
+            fn mux_start(
+                track: &mut Option<(u64, impl Track)>,
+                keyframe_buffer: &mut Vec<Rc<Frame>>,
+                frame: Rc<Frame>,
+                track_id: u64,
+                keyframe: bool,
+            ) {
+                if let Some((id, _)) = track {
+                    if track_id == *id {
+                        if keyframe {
+                            keyframe_buffer.clear();
+                        }
+
+                        keyframe_buffer.push(frame);
+                    }
+                }
+            }
+
+            fn mux_middle(
+                track: &mut Option<(u64, impl Track)>,
+                keyframe_buffer: &mut Vec<Rc<Frame>>,
+                frame: Rc<Frame>,
+                track_id: u64,
+                keyframe: bool,
+                timescale: u64,
+                start_timestamp: &mut u64,
+                end_timestamp: &mut u64,
+                processing_track: &mut bool,
+            ) {
+                if let Some((id, track_writer)) = track {
+                    if track_id == *id {
+                        keyframe_buffer.push(frame);
+
+                        if keyframe {
+                            if !keyframe_buffer.is_empty() {
+                                for frame in keyframe_buffer.drain(..) {
+                                    let timestamp = frame.timestamp * timescale;
+
+                                    *start_timestamp = (*start_timestamp).min(timestamp);
+
+                                    if timestamp > *end_timestamp {
+                                        *end_timestamp = timestamp;
+                                        *processing_track = false;
+                                    }
+
+                                    track_writer.add_frame(
+                                        &frame.data,
+                                        timestamp - *start_timestamp,
+                                        frame.is_keyframe.unwrap_or(false),
+                                    );
+                                }
+                            }
+
+                            keyframe_buffer.clear();
+                        }
+                    }
+                }
+            }
+
+            loop {
+                let mut frame = Frame::default();
+                let Ok(true) = file.next_frame(&mut frame) else {
+                    break;
+                };
+                let frame = Rc::new(frame);
+
+                if let (false, false) = processing_track {
+                    break;
+                }
+
+                let timestamp = frame.timestamp * timescale;
+                let keyframe = frame.is_keyframe.unwrap_or(false);
+                let track_id = frame.track;
+
+                if timestamp < start_timestamp {
+                    mux_start(
+                        &mut video_track,
+                        &mut video_keyframe_buffer,
+                        frame.clone(),
+                        track_id,
+                        keyframe,
+                    );
+                    mux_start(
+                        &mut audio_track,
+                        &mut audio_keyframe_buffer,
+                        frame,
+                        track_id,
+                        keyframe,
+                    );
+
+                    continue;
+                }
+
+                mux_middle(
+                    &mut video_track,
+                    &mut video_keyframe_buffer,
+                    frame.clone(),
+                    track_id,
+                    keyframe,
+                    timescale,
+                    &mut start_timestamp,
+                    &mut end_timestamp,
+                    &mut processing_track.0,
+                );
+                mux_middle(
+                    &mut audio_track,
+                    &mut audio_keyframe_buffer,
+                    frame.clone(),
+                    track_id,
+                    keyframe,
+                    timescale,
+                    &mut start_timestamp,
+                    &mut end_timestamp,
+                    &mut processing_track.0,
+                );
+            }
+
+            // mux after the last keyframe
+            fn mux_end(
+                track: &mut Option<(u64, impl Track)>,
+                keyframe_buffer: &mut Vec<Rc<Frame>>,
+                timescale: u64,
+                start_timestamp: &mut u64,
+                end_timestamp: &mut u64,
+            ) {
+                if let Some((_, track_writer)) = track {
+                    if !keyframe_buffer.is_empty() {
+                        for frame in keyframe_buffer.drain(..) {
+                            let timestamp = frame.timestamp * timescale;
+
+                            *start_timestamp = (*start_timestamp).min(timestamp);
+
+                            if timestamp > *end_timestamp {
+                                *end_timestamp = timestamp;
+                                break;
+                            }
+
+                            track_writer.add_frame(
+                                &frame.data,
+                                timestamp - *start_timestamp,
+                                frame.is_keyframe.unwrap_or(false),
+                            );
+                        }
+                    }
+                }
+            }
+
+            mux_end(
+                &mut video_track,
+                &mut video_keyframe_buffer,
+                timescale,
+                &mut start_timestamp,
+                &mut end_timestamp,
+            );
+            mux_end(
+                &mut audio_track,
+                &mut audio_keyframe_buffer,
+                timescale,
+                &mut start_timestamp,
+                &mut end_timestamp,
+            );
+
+            segment
+                .try_finalize(Some((end_timestamp - start_timestamp) / timescale))
+                .map_err(|_| ErrorInternalServerError("Unable to finalize the video stream"))?;
+
+            Ok(HttpResponse::with_body(StatusCode::OK, buffer)
+                .customize()
+                .insert_header(("Content-Type", "video/webm"))
+                .insert_header((
+                    "X-Content-Range",
+                    format!("{}-{}", start_timestamp, end_timestamp),
+                ))
+                .respond_to(&request))
         }
 
         #[derive(Deserialize, Validate, Debug)]

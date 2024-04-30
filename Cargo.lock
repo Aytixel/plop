@@ -1430,6 +1430,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
+name = "matroska-demuxer"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "329a4d8d9b4366dd12dcc99c8916f08a011a7a48aab40b5dcaead6174c8e7a90"
+
+[[package]]
 name = "md-5"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1762,6 +1768,7 @@ dependencies = [
  "file-format",
  "fred",
  "handlebars",
+ "matroska-demuxer",
  "rustls 0.22.4",
  "rustls-pemfile 2.1.2",
  "sea-orm",
@@ -1771,6 +1778,7 @@ dependencies = [
  "tokio-stream",
  "uuid",
  "validator",
+ "webm",
 ]
 
 [[package]]
@@ -3131,6 +3139,24 @@ name = "wasm-bindgen-shared"
 version = "0.2.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
+
+[[package]]
+name = "webm"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffd0c08586dfb375b19b2e3ee43a0288f0be445b257f64bb0ab08104334e3644"
+dependencies = [
+ "webm-sys",
+]
+
+[[package]]
+name = "webm-sys"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2baaf79d0ae109c23b349b80e16b80933b2d9ff3e62291009b7286c163615d4"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "webpki-roots"
