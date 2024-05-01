@@ -299,6 +299,9 @@ pub mod uuid {
             let mut video_keyframe_buffer = Vec::new();
             let mut audio_keyframe_buffer = Vec::new();
 
+            file.seek(params.start_timestamp.saturating_sub(4_000_000_000) / timescale)
+                .unwrap();
+
             // mux before from the last keyframe to the first frame
             fn mux_start(
                 track: &mut Option<(u64, impl Track)>,
@@ -391,6 +394,11 @@ pub mod uuid {
                     );
 
                     continue;
+                }
+                if timestamp == start_timestamp {
+                    video_keyframe_buffer = video_keyframe_buffer.pop().as_slice().to_vec();
+                    audio_keyframe_buffer = audio_keyframe_buffer.pop().as_slice().to_vec();
+                    start_timestamp = timestamp;
                 }
 
                 mux_middle(
@@ -485,6 +493,33 @@ pub mod uuid {
                 Ok(Err(_)) | Err(_) => {
                     let mut frame = Frame::default();
                     let mut last_frame_timestamp = 0;
+                    let mut seek_length = 18_000_000_000_000i64;
+                    let mut seek_timestamp = end_timestamp;
+                    let mut found_end = false;
+
+                    loop {
+                        seek_timestamp = seek_timestamp.saturating_add_signed(seek_length);
+                        file.seek(seek_timestamp / timescale).unwrap();
+
+                        if let Ok(true) = file.next_frame(&mut frame) {
+                            if found_end {
+                                seek_length = seek_length.abs() / 2;
+                            } else {
+                                seek_length = seek_length.abs();
+                            }
+                        } else {
+                            found_end = true;
+                            seek_length = -(seek_length / 2).abs();
+
+                            if seek_length.abs() <= 500_000_000 {
+                                seek_timestamp =
+                                    seek_timestamp.saturating_add_signed(seek_length * 2);
+                                break;
+                            }
+                        }
+                    }
+
+                    file.seek(seek_timestamp / timescale).unwrap();
 
                     while let Ok(true) = file.next_frame(&mut frame) {
                         last_frame_timestamp =
