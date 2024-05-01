@@ -555,7 +555,7 @@ class VideoPlayer {
     }
 
     get ended() {
-        return this.#video_player.dataset.ended = this.current_time == this.duration
+        return this.#video_player.dataset.ended = Math.round(this.current_time * 100) >= Math.round(this.duration * 100) - 3
     }
 
     set paused(paused) {
