@@ -129,7 +129,6 @@ class VideoSource extends MediaSource {
                     const { range_start, range_end, data } = this.#chunk_buffer.shift()
 
                     this.#source_buffer.addEventListener("updateend", () => {
-                        this.#source_buffer.abort()
                         this.#source_buffer.timestampOffset = range_start
                         this.#source_buffer.appendWindowStart = range_start
                         this.#source_buffer.appendWindowEnd = range_end
@@ -146,8 +145,6 @@ class VideoSource extends MediaSource {
             }
 
             this.#source_buffer.onupdateend = append_segment
-            this.#source_buffer.onabort = () =>
-                this.#source_buffer.onupdateend = append_segment
             this.start()
         })
     }
@@ -183,7 +180,7 @@ class VideoSource extends MediaSource {
     }
 
     get #continue() {
-        return this.#video_player.current_time > (this.buffered_end - 5) && (this.buffered_end + 0.5) < this.duration
+        return this.#video_player.current_time > (this.buffered_end - 5) && this.buffered_end < this.duration
     }
 
     start() {
@@ -240,14 +237,18 @@ class VideoSource extends MediaSource {
             { signal: abort_controller.signal }
         )
         const t1 = Date.now()
+
+        this.#clear_timeout(timeout_id)
+
         const request_latency = this.request_latency = Math.max(t1 - t0, 1)
 
         if (response.status != 200)
             throw "Request failed : " + await response.text()
 
-        const [range_start, range_end] = response.headers.get("X-Content-Range").split("-").map(value => parseInt(value))
+        const content_range_split = response.headers.get("X-Content-Range").split("/")
+        const [range_start, range_end] = content_range_split[0].split("-").map(value => parseInt(value))
 
-        this.#clear_timeout(timeout_id)
+        this.duration = Math.min(parseInt(content_range_split[1]) / 1_000_000_000, this.duration)
 
         return {
             response,
@@ -290,14 +291,20 @@ class VideoSource extends MediaSource {
                 this.#length = Math.round(speed / this.length * this.duration)
                 this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size) + this.#start, this.duration) - this.#start)
 
-                this.#next_segment()
+                if (this.#length > 0)
+                    this.#next_segment()
+                else
+                    this.#loading = false
             } else {
                 this.#loading = false
             }
 
             this.#append_segment(range_start, range_end, data)
         } catch (error) {
-            console.warn(error)
+            if (typeof error === "string")
+                console.warn(error)
+            else
+                console.error(error)
         }
     }
 }
@@ -319,6 +326,7 @@ class VideoPlayer {
     #progress = document.getElementById("video_player_progress")
     #duration = document.getElementById("video_player_duration")
 
+    #video_source
     #metadata = {
         uuid: null,
         duration: null,
@@ -390,7 +398,7 @@ class VideoPlayer {
         this.#overlay.addEventListener("pointerout", () => this.#overlay.dataset.show = false)
 
         // listen on play request
-        const play = () => this.paused = !this.paused
+        const play = () => this.paused = this.ended ? (this.current_time = 0, this.#video_source && this.#video_source.start(), false) : !this.paused
 
         this.#overlay.addEventListener("click", e => e.target == this.#overlay && play())
         this.#play_button.addEventListener("click", play)
@@ -442,10 +450,7 @@ class VideoPlayer {
 
         this.#video.addEventListener("play", update_play_button)
         this.#video.addEventListener("pause", update_play_button)
-        this.#video.addEventListener("durationchange", () => {
-            if (isFinite(this.duration))
-                this.#duration.textContent = this.#duration_to_string(this.#progress_slider.max = this.#metadata.duration = this.duration)
-        })
+        this.#video.addEventListener("durationchange", () => this.#duration.textContent = this.#duration_to_string(this.#progress_slider.max = this.#metadata.duration = this.#video.duration))
         this.#video.addEventListener("timeupdate", () => this.#update_time())
         this.#video.addEventListener("volumechange", () => this.#update_volume())
 
@@ -505,14 +510,14 @@ class VideoPlayer {
             const t0 = Date.now()
             const data = await response.blob()
             const t1 = Date.now()
-            const video_source = new VideoSource(this, data.size * 1_000 / Math.max(t1 - t0, 1))
 
+            this.#video_source = new VideoSource(this, data.size * 1_000 / Math.max(t1 - t0, 1))
             this.#video.poster = URL.createObjectURL(data)
-            this.#progress_slider.addEventListener("input", () => video_source.start())
-            this.#video.addEventListener("timeupdate", () => video_source.start())
+            this.#progress_slider.addEventListener("input", () => this.#video_source.start())
+            this.#video.addEventListener("timeupdate", () => this.#video_source.start())
             this.#video.addEventListener("loadedmetadata", () => this.#video.play())
 
-            this.#video.src = URL.createObjectURL(video_source)
+            this.#video.src = URL.createObjectURL(this.#video_source)
         })
     }
 
@@ -547,6 +552,10 @@ class VideoPlayer {
 
     get current_time() {
         return this.#video.currentTime
+    }
+
+    get ended() {
+        return this.#video_player.dataset.ended = this.current_time == this.duration
     }
 
     set paused(paused) {
@@ -596,6 +605,7 @@ class VideoPlayer {
     #update_time() {
         localStorage.setItem(`video-progress:${this.uuid}`, this.current_time)
 
+        this.ended
         this.#progress.textContent = this.#duration_to_string(this.#progress_slider.value = this.current_time)
         this.#progress_slider.dispatchEvent(new Event("update"))
         this.#update_canvas()

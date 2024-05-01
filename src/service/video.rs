@@ -466,12 +466,57 @@ pub mod uuid {
                 .try_finalize(Some((end_timestamp - start_timestamp) / timescale))
                 .map_err(|_| ErrorInternalServerError("Unable to finalize the video stream"))?;
 
+            let video_timestamp_key =
+                format!("video:timestamp:{}:{}", params.uuid, params.resolution);
+            let last_frame_timestamp = match data
+                .redis_client
+                .get::<String, _>(&video_timestamp_key)
+                .await
+                .map(|timestamp| timestamp.parse::<u64>())
+            {
+                Ok(Ok(timestamp)) => {
+                    data.redis_client
+                        .expire::<RedisValue, _>(video_timestamp_key, VIDEO_REDIS_TIMEOUT)
+                        .await
+                        .ok();
+
+                    timestamp
+                }
+                Ok(Err(_)) | Err(_) => {
+                    let mut frame = Frame::default();
+                    let mut last_frame_timestamp = 0;
+
+                    while let Ok(true) = file.next_frame(&mut frame) {
+                        last_frame_timestamp =
+                            last_frame_timestamp.max(frame.timestamp * timescale);
+                    }
+
+                    last_frame_timestamp = last_frame_timestamp.max(end_timestamp);
+
+                    data.redis_client
+                        .set::<RedisValue, _, _>(
+                            video_timestamp_key,
+                            last_frame_timestamp.to_string(),
+                            Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
+                            None,
+                            false,
+                        )
+                        .await
+                        .ok();
+
+                    last_frame_timestamp
+                }
+            };
+
             Ok(HttpResponse::with_body(StatusCode::OK, buffer)
                 .customize()
                 .insert_header(("Content-Type", "video/webm"))
                 .insert_header((
                     "X-Content-Range",
-                    format!("{}-{}", start_timestamp, end_timestamp),
+                    format!(
+                        "{}-{}/{}",
+                        start_timestamp, end_timestamp, last_frame_timestamp
+                    ),
                 ))
                 .respond_to(&request))
         }
