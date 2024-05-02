@@ -74,7 +74,7 @@ pub mod uuid {
         const DEFAULT_META_DESCRIPTION: &str =
             "Apparemment pas de spoil par ici donc pas de description.";
 
-        Ok(HttpResponse::Ok().insert_header(("Cache-Control", "no-cache")).body(
+        Ok(HttpResponse::Ok().body(
         data.handlebars
             .render(
                 "watch",
@@ -101,7 +101,9 @@ pub mod uuid {
                     "lengths": lengths,
                     "bitrates": bitrates,
                     "has_audio": video.has_audio,
-                    "vues": video.vues
+                    "vues": video.vues,
+                    "width": 1280,
+                    "height": 720
                 }),
             )
             .unwrap(),

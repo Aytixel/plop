@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr-FR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00ffff">
+    <meta name="author" content="Aytixel">
+    <meta name="description" content="Sur cette page mette en ligne toutes vos vidéos, il n'y a pas plus simple.">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <title>Mise en ligne de contenue</title>
+    <link rel="preload stylesheet" as="style" type="text/css" href="/css/upload.css">
+    <script src="/js/upload.mjs" type="module"></script>
+</head>
+
+<body>
+    <form id="video_upload_form">
+        <div>
+            <input type="text" minlength="1" maxlength="100" name="title" placeholder="Titre" required>
+            <textarea maxlength="5000" name="description" placeholder="Description"></textarea>
+            <input type="text" maxlength="500" name="tags" placeholder="Tags">
+        </div>
+        <div id="thumbnail_container">
+            <img src="" alt="Miniature de la vidéo" width="640" height="360" id="thumbnail">
+            <label for="thumbnail_filepicker">
+                Choisir une miniature
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker"
+                    required>
+            </label>
+        </div>
+        {{> player}}
+        <div>
+            <label for="video_filepicker">
+                Choisir une vidéo
+                <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker" required>
+            </label>
+            <span>
+                <span id="video_width">0</span>x<span id="video_height">0</span> <span id="video_framerate">0</span>fps
+            </span>
+        </div>
+        <div>
+            <select id="encoder_selection">
+                <option value="low" selected>Encoder basse qualité</option>
+                <option value="high" disabled>Encoder haute qualité</option>
+            </select>
+            <input type="submit" value="Transcoder et télécharger la vidéo">
+        </div>
+    </form>
+</body>
+
+</html>

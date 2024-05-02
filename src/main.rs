@@ -86,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
             .wrap(middleware::Compress::default())
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
             .service(service::thumbnail::uuid::get)
+            .service(service::upload::get)
             .service(service::video::put)
             .service(service::video::uuid::resolution::get)
             .service(service::video::uuid::resolution::post)
