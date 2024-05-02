@@ -87,9 +87,9 @@ async fn main() -> anyhow::Result<()> {
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
             .service(service::thumbnail::uuid::get)
             .service(service::upload::get)
-            .service(service::video::put)
+            .service(service::upload::put)
+            .service(service::upload::uuid::resolution::post)
             .service(service::video::uuid::resolution::get)
-            .service(service::video::uuid::resolution::post)
             .service(service::watch::uuid::get)
             .service(
                 Files::new("/", "./static/")

@@ -5,5 +5,5 @@ onmessage = e => {
     if ("position" in chunk)
         headers.set("Range", `bytes=${chunk.position}-`)
 
-    fetch(`/video/${chunk.video_uuid}/${chunk.resolution}`, { method: "POST", headers, body: chunk.data })
+    fetch(`/upload/${chunk.video_uuid}/${chunk.resolution}`, { method: "POST", headers, body: chunk.data })
 }
