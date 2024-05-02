@@ -98,7 +98,7 @@ export class VideoPlayer extends EventTarget {
         this.#popup_button.hidden = !("requestPictureInPicture" in HTMLVideoElement.prototype)
 
         // listen on fullscreen request
-        const fullscreen = () => this.#video_player.dataset.fullscreen = this.fullscreen = !this.fullscreen
+        const fullscreen = () => this.fullscreen = !this.fullscreen
 
         this.#fullscreen_button.addEventListener("click", fullscreen)
         this.#video_player.addEventListener("dblclick", fullscreen)
@@ -141,6 +141,7 @@ export class VideoPlayer extends EventTarget {
         this.#video.addEventListener("durationchange", updateDuration)
         this.#video.addEventListener("timeupdate", () => this.#updateTime())
         this.#video.addEventListener("volumechange", () => this.#updateVolume())
+        this.#video.addEventListener("enterpictureinpicture", () => this.fullscreen = false)
 
         // update ui on buffer progress
         const updateBufferProgress = () => {
@@ -304,6 +305,8 @@ export class VideoPlayer extends EventTarget {
     }
 
     set fullscreen(fullscreen) {
+        this.#video_player.dataset.fullscreen = fullscreen
+
         if (this.fullscreen != fullscreen) {
             if (fullscreen)
                 this.#video_player.requestFullscreen()
@@ -330,6 +333,22 @@ export class VideoPlayer extends EventTarget {
 
     get src() {
         return this.#video.src
+    }
+
+    get videoTracks() {
+        return this.#video.videoTracks
+    }
+
+    get audioTracks() {
+        return this.#video.audioTracks
+    }
+
+    get videoWidth() {
+        return this.#video.videoWidth
+    }
+
+    get videoHeight() {
+        return this.#video.videoHeight
     }
 
     play() {
