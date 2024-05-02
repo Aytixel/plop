@@ -31,6 +31,8 @@
         }`)
 
         video_metadata.date = new $mol_time_moment("{{timestamp}}")
+
+        Object.freeze(video_metadata)
     </script>
     <script type="module" src="/js/watch.mjs"></script>
 </head>
