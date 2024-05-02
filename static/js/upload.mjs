@@ -208,10 +208,10 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     switch (encoder_selection_element.value) {
         case "high":
-            encode_video = (await import("/js/upload/high-quality-encoder.js")).default
+            encode_video = (await import("/js/upload/high-quality-encoder.mjs")).default
             break
         default:
-            encode_video = (await import("/js/upload/low-quality-encoder.js")).default
+            encode_video = (await import("/js/upload/low-quality-encoder.mjs")).default
             break
     }
 
