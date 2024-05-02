@@ -16,19 +16,24 @@ export class VideoPlayer extends EventTarget {
     #duration = document.getElementById("video_player_duration")
 
     #metadata = {
-        id: "",
+        uuid: undefined,
         title: "",
+        ambient_light: true,
     }
 
-    constructor(id, title, duration = -1, start_time = parseFloat(new URLSearchParams(location.search).get("t"))) {
+    constructor(options = {}) {
         super()
 
-        this.#metadata.id = id
-        this.#metadata.title = title
+        if (typeof options.uuid === "string") this.#metadata.uuid = options.uuid
+        if (typeof options.title === "string") this.#metadata.title = options.title
+        if (typeof options.ambient_light === "boolean") this.#metadata.ambient_light = options.ambient_light
+
+        const duration = (typeof options.duration === "number") ? options.duration : -1
+        let start_time = (typeof options.start_time === "number") ? options.start_time : parseFloat(new URLSearchParams(location.search).get("t"))
 
         // setup media session
         if ("mediaSession" in navigator) {
-            const update_time = () => navigator.mediaSession.setPositionState({
+            const updateTime = () => navigator.mediaSession.setPositionState({
                 duration: this.duration,
                 playbackRate: this.#video.playbackRate,
                 position: this.currentTime
@@ -36,8 +41,8 @@ export class VideoPlayer extends EventTarget {
 
             this.#video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
             this.#video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
-            this.#video.addEventListener("timeupdate", update_time)
-            this.#video.addEventListener("loadedmetadata", update_time)
+            this.#video.addEventListener("timeupdate", updateTime)
+            this.#video.addEventListener("loadedmetadata", updateTime)
 
             navigator.mediaSession.playbackState = this.paused ? "paused" : "playing"
             navigator.mediaSession.metadata = new MediaMetadata({
@@ -60,19 +65,19 @@ export class VideoPlayer extends EventTarget {
         }
 
         // set video start time
-        if (!(start_time >= 0 && start_time <= duration))
-            start_time = parseFloat(localStorage.getItem(`video-progress:${this.id}`, this.currentTime)) || 0
+        if (this.uuid !== undefined && !(start_time >= 0 && start_time <= duration))
+            start_time = parseFloat(localStorage.getItem(`video-progress:${this.uuid}`, this.currentTime)) || 0
         if (start_time < duration - 1)
             this.currentTime = start_time
 
         // listen whether to show or not the overlay
-        const hide_overlay = this.#debounce(() => this.#overlay.dataset.show = false, 2000)
+        const hideOverlay = this.#debounce(() => this.#overlay.dataset.show = false, 2000)
 
         this.#overlay.addEventListener("pointermove", () => {
             if (this.#overlay.dataset.show == "false") {
                 this.#overlay.dataset.show = true
 
-                hide_overlay()
+                hideOverlay()
             }
         })
         this.#overlay.addEventListener("pointerout", () => this.#overlay.dataset.show = false)
@@ -89,7 +94,7 @@ export class VideoPlayer extends EventTarget {
         this.#volume_button.addEventListener("click", mute)
 
         // listen on picture in picture request
-        this.#popup_button.addEventListener("click", () => this.picture_in_picture())
+        this.#popup_button.addEventListener("click", () => this.requestPictureInPicture())
         this.#popup_button.hidden = !("requestPictureInPicture" in HTMLVideoElement.prototype)
 
         // listen on fullscreen request
@@ -99,15 +104,15 @@ export class VideoPlayer extends EventTarget {
         this.#video_player.addEventListener("dblclick", fullscreen)
 
         // setup sliders and listen on sliders inputs
-        this.#init_input_range(this.#progress_slider)
-        this.#init_input_range(this.#volume_slider)
-        this.#update_time()
-        this.#update_volume()
+        this.#initInputRange(this.#progress_slider)
+        this.#initInputRange(this.#volume_slider)
+        this.#updateTime()
+        this.#updateVolume()
 
         let was_paused = this.paused
 
 
-        this.#duration.textContent = this.#duration_to_string(this.#progress_slider.max)
+        this.#duration.textContent = this.#durationToString(this.#progress_slider.max)
 
         this.#progress_slider.addEventListener("input", () => this.currentTime = this.#progress_slider.value)
         this.#progress_slider.addEventListener("pointerdown", () => {
@@ -127,18 +132,18 @@ export class VideoPlayer extends EventTarget {
         this.#volume_slider.addEventListener("input", () => this.volume = this.#volume_slider.value)
 
         // listen on video event and update ui
-        const update_play_button = () => this.#video_player.dataset.paused = this.paused
-        const update_duration = () => this.#duration.textContent = this.#duration_to_string(this.#progress_slider.max = this.#video.duration)
+        const updatePlayButton = () => this.#video_player.dataset.paused = this.paused
+        const updateDuration = () => this.#duration.textContent = this.#durationToString(this.#progress_slider.max = this.#video.duration)
 
-        this.#video.addEventListener("play", update_play_button)
-        this.#video.addEventListener("pause", update_play_button)
-        this.#video.addEventListener("loadedmetadata", update_duration)
-        this.#video.addEventListener("durationchange", update_duration)
-        this.#video.addEventListener("timeupdate", () => this.#update_time())
-        this.#video.addEventListener("volumechange", () => this.#update_volume())
+        this.#video.addEventListener("play", updatePlayButton)
+        this.#video.addEventListener("pause", updatePlayButton)
+        this.#video.addEventListener("loadedmetadata", updateDuration)
+        this.#video.addEventListener("durationchange", updateDuration)
+        this.#video.addEventListener("timeupdate", () => this.#updateTime())
+        this.#video.addEventListener("volumechange", () => this.#updateVolume())
 
         // update ui on buffer progress
-        const update_buffer_progress = () => {
+        const updateBufferProgress = () => {
             const gradients = []
 
             for (let i = 0; i < this.#video.buffered.length; i++) {
@@ -151,9 +156,9 @@ export class VideoPlayer extends EventTarget {
             this.#progress_slider.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
         }
 
-        this.#video.addEventListener("progress", update_buffer_progress)
-        this.#video.addEventListener("timeupdate", update_buffer_progress)
-        this.#video.addEventListener("play", update_buffer_progress)
+        this.#video.addEventListener("progress", updateBufferProgress)
+        this.#video.addEventListener("timeupdate", updateBufferProgress)
+        this.#video.addEventListener("play", updateBufferProgress)
 
         // update ambient light canvas
         let battery_high = true
@@ -170,22 +175,22 @@ export class VideoPlayer extends EventTarget {
 
         this.#context.globalAlpha = .05
 
-        setInterval(() => !this.paused && this.#update_canvas(), 2000)
+        setInterval(() => !this.paused && this.#updateCanvas(), 2000)
         setInterval(() => {
-            this.#video_player.dataset.ambient_light = !this.fullscreen && battery_high
+            this.#video_player.dataset.ambient_light = this.ambientLight && !this.fullscreen && battery_high
 
             if (this.#video_player.dataset.ambient_light == "true")
                 requestAnimationFrame(() => this.#context.drawImage(this.#compute_canvas, 0, 0, this.#canvas.width, this.#canvas.height))
         }, 100)
 
-        this.#video.addEventListener("loadeddata", () => setTimeout(() => this.#update_canvas(), 100))
+        this.#video.addEventListener("loadeddata", () => setTimeout(() => this.#updateCanvas(), 100))
 
         // key bindings
         window.addEventListener("keydown", e => {
             const key_bindings = {
                 " ": play,
                 f: fullscreen,
-                p: () => this.picture_in_picture(),
+                p: () => this.requestPictureInPicture(),
                 m: mute,
                 arrowleft: () => this.currentTime = Math.max(this.currentTime - 2, 0),
                 arrowright: () => this.currentTime = Math.min(this.currentTime + 2, this.duration),
@@ -230,12 +235,12 @@ export class VideoPlayer extends EventTarget {
         this.#video.addEventListener("resize", e => this.dispatchEvent(new e.constructor(e.type, e)))
     }
 
-    set id(id) {
-        this.#metadata.id = id
+    set uuid(uuid) {
+        this.#metadata.uuid = uuid
     }
 
-    get id() {
-        return this.#metadata.id
+    get uuid() {
+        return this.#metadata.uuid
     }
 
     set title(title) {
@@ -246,13 +251,21 @@ export class VideoPlayer extends EventTarget {
         return this.#metadata.title
     }
 
+    set ambientLight(ambient_light) {
+        this.#metadata.ambient_light = ambient_light
+    }
+
+    get ambientLight() {
+        return this.#metadata.ambient_light
+    }
+
     get duration() {
         return this.#video.duration
     }
 
     set currentTime(currentTime) {
         this.#video.currentTime = currentTime
-        this.#update_time()
+        this.#updateTime()
     }
 
     get currentTime() {
@@ -273,7 +286,7 @@ export class VideoPlayer extends EventTarget {
 
     set muted(muted) {
         this.#video.muted = muted
-        this.#update_volume()
+        this.#updateVolume()
     }
 
     get muted() {
@@ -283,7 +296,7 @@ export class VideoPlayer extends EventTarget {
     set volume(volume) {
         this.muted = false
         this.#video.volume = volume
-        this.#update_volume()
+        this.#updateVolume()
     }
 
     get volume() {
@@ -327,20 +340,20 @@ export class VideoPlayer extends EventTarget {
         this.#video.pause()
     }
 
-    picture_in_picture() {
+    requestPictureInPicture() {
         "requestPictureInPicture" in HTMLVideoElement.prototype && !this.#video.disablePictureInPicture && this.#video.requestPictureInPicture()
     }
 
-    #update_time() {
-        localStorage.setItem(`video-progress:${this.id}`, this.currentTime)
+    #updateTime() {
+        if (this.uuid !== undefined) localStorage.setItem(`video-progress:${this.uuid}`, this.currentTime)
 
         this.ended
-        this.#progress.textContent = this.#duration_to_string(this.#progress_slider.value = this.currentTime)
+        this.#progress.textContent = this.#durationToString(this.#progress_slider.value = this.currentTime)
         this.#progress_slider.dispatchEvent(new Event("update"))
-        this.#update_canvas()
+        this.#updateCanvas()
     }
 
-    #update_volume() {
+    #updateVolume() {
         if (this.muted) {
             this.#video_player.dataset.volume = "muted"
             this.#volume_slider.value = 0
@@ -352,7 +365,7 @@ export class VideoPlayer extends EventTarget {
         this.#volume_slider.dispatchEvent(new Event("update"))
     }
 
-    #init_input_range(element) {
+    #initInputRange(element) {
         function update() {
             requestAnimationFrame(() => element.style.setProperty("--range-position", element.value / element.max * 100 + "%"))
         }
@@ -363,13 +376,13 @@ export class VideoPlayer extends EventTarget {
         update()
     }
 
-    #duration_to_string(duration) {
+    #durationToString(duration) {
         const string = `${Math.floor(duration / 60 % 60)}:${(Math.round(duration) % 60).toString().padStart(2, 0)}`
 
         return duration >= 3600 ? Math.floor(duration / 3600) + ":" + string.padStart(5, 0) : string
     }
 
-    #update_canvas() {
+    #updateCanvas() {
         if (this.#video_player.dataset.ambient_light == "true")
             setTimeout(() => requestAnimationFrame(() => this.#compute_context.drawImage(this.#video, 0, 0, this.#compute_canvas.width, this.#compute_canvas.height)), 500)
     }

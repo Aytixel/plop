@@ -19,17 +19,17 @@ export class VideoSource extends MediaSource {
         this.#video = video
         this.#video_metadata = video_metadata
 
-        if (speed !== undefined) this.#get_resolution(speed)
+        if (speed !== undefined) this.#getResolution(speed)
 
         this.addEventListener("sourceopen", () => {
-            this.#source_buffer = this.addSourceBuffer(`video/webm;codecs=\"vp9${this.has_audio ? ",opus" : ""}\"`)
+            this.#source_buffer = this.addSourceBuffer(`video/webm;codecs=\"vp9${this.hasAudio ? ",opus" : ""}\"`)
             this.#source_buffer.mode = "segments"
             this.#source_buffer.appendWindowStart = 0
             this.#source_buffer.appendWindowEnd = this.#video_metadata.duration
             this.#buffered = this.#source_buffer.buffered
             this.duration = this.#video_metadata.duration
 
-            const append_segment = () => {
+            const appendSegment = () => {
                 if (this.#chunk_buffer.length) {
                     this.#appending_segment = true
 
@@ -37,26 +37,24 @@ export class VideoSource extends MediaSource {
 
                     this.#source_buffer.addEventListener("updateend", () => {
                         this.#source_buffer.timestampOffset = range_start
-                        this.#source_buffer.appendWindowStart = range_start
-                        this.#source_buffer.appendWindowEnd = range_end
                         this.#source_buffer.appendBuffer(data)
                     }, { once: true })
 
-                    if (this.buffered_end >= range_end)
+                    if (this.bufferedEnd >= range_end)
                         this.#source_buffer.onupdateend()
                     else
-                        this.#source_buffer.remove(this.buffered_end, range_end)
+                        this.#source_buffer.remove(this.bufferedEnd, range_end)
                 } else {
                     this.#appending_segment = false
                 }
             }
 
-            this.#source_buffer.onupdateend = append_segment
+            this.#source_buffer.onupdateend = appendSegment
             this.start()
         })
     }
 
-    get has_audio() {
+    get hasAudio() {
         return this.#video_metadata.has_audio
     }
 
@@ -80,7 +78,7 @@ export class VideoSource extends MediaSource {
         return this.#source_buffer.buffered.length ? this.#buffered = this.#source_buffer.buffered : this.#buffered
     }
 
-    get buffered_end() {
+    get bufferedEnd() {
         if (this.buffered.length) {
             for (let i = this.buffered.length - 1; i > -1; i--)
                 if (this.#video.currentTime >= this.buffered.start(i) && this.#video.currentTime <= this.buffered.end(i))
@@ -91,7 +89,7 @@ export class VideoSource extends MediaSource {
     }
 
     get #continue() {
-        return this.#video.currentTime > (this.buffered_end - 5) && this.buffered_end < this.duration
+        return this.#video.currentTime > (this.bufferedEnd - 5) && this.bufferedEnd < this.duration
     }
 
     start() {
@@ -99,7 +97,7 @@ export class VideoSource extends MediaSource {
             this.#loading = true
             this.#start = this.#video.currentTime
 
-            this.#next_segment()
+            this.#nextSegment()
         }
     }
 
@@ -116,30 +114,30 @@ export class VideoSource extends MediaSource {
         )
     }
 
-    #get_resolution(speed) {
+    #getResolution(speed) {
         this.#resolution = Math.max(this.#video_metadata.bitrates.findLastIndex(bitrate => bitrate * 2.2 < speed), 0)
     }
 
-    #set_timeout(key, abort_controller) {
+    #setTimeout(key, abort_controller) {
         if (this[key])
             return setTimeout(() => {
                 this[key] = 0
                 this.#length = Math.round(Math.max(this.#length / 2, this.#min_chunk_size))
 
                 abort_controller.abort("Request timeout : Certainly due to a change in connection speed.")
-                this.#next_segment()
+                this.#nextSegment()
             }, this[key] * 2)
         else
             return null
     }
 
-    #clear_timeout(timeout_id) {
+    #clearTimeout(timeout_id) {
         if (timeout_id != null) clearTimeout(timeout_id)
     }
 
     async #fetch() {
         const abort_controller = new AbortController()
-        const timeout_id = this.#set_timeout("request_latency", abort_controller)
+        const timeout_id = this.#setTimeout("request_latency", abort_controller)
         const t0 = Date.now()
         const response = await fetch(`/video/${this.#video_metadata.uuid
             }/${this.resolution
@@ -149,7 +147,7 @@ export class VideoSource extends MediaSource {
         )
         const t1 = Date.now()
 
-        this.#clear_timeout(timeout_id)
+        this.#clearTimeout(timeout_id)
 
         const request_latency = this.request_latency = Math.max(t1 - t0, 1)
 
@@ -171,31 +169,31 @@ export class VideoSource extends MediaSource {
     }
 
     async #read(response, abort_controller) {
-        const timeout_id = this.#set_timeout("download_latency", abort_controller)
+        const timeout_id = this.#setTimeout("download_latency", abort_controller)
         const t2 = Date.now()
         const data = await response.arrayBuffer()
         const t3 = Date.now()
         const download_latency = this.download_latency = Math.max(t3 - t2, 1)
 
-        this.#clear_timeout(timeout_id)
+        this.#clearTimeout(timeout_id)
 
         return { data, download_latency, speed: data.byteLength * 1_000 / download_latency }
     }
 
-    #append_segment(range_start, range_end, data) {
+    #appendSegment(range_start, range_end, data) {
         this.#chunk_buffer.push({ range_start, range_end, data })
 
         if (!this.#source_buffer.updating && !this.#appending_segment)
             this.#source_buffer.onupdateend()
     }
 
-    async #next_segment() {
+    async #nextSegment() {
         try {
             const { response, abort_controller, request_latency, range_start, range_end } = await this.#fetch()
             const { data, download_latency, speed } = await this.#read(response, abort_controller)
 
             this.#log(speed, download_latency, request_latency)
-            this.#get_resolution(speed)
+            this.#getResolution(speed)
             this.#start = range_end
 
             if (this.#continue) {
@@ -203,14 +201,14 @@ export class VideoSource extends MediaSource {
                 this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size) + this.#start, this.duration) - this.#start)
 
                 if (this.#length > 0)
-                    this.#next_segment()
+                    this.#nextSegment()
                 else
                     this.#loading = false
             } else {
                 this.#loading = false
             }
 
-            this.#append_segment(range_start, range_end, data)
+            this.#appendSegment(range_start, range_end, data)
         } catch (error) {
             if (typeof error === "string")
                 console.warn(error)

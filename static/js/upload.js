@@ -21,7 +21,7 @@ if ("captureStream" in HTMLMediaElement.prototype) {
 const thumbnail_element = document.getElementById("thumbnail")
 const thumbnail_filepicker_element = document.getElementById("thumbnail_filepicker")
 
-function encode_thumbnail(url) {
+function encodeThumbnail(url) {
     return new Promise(resolve => {
         const canvas = document.createElement("canvas")
         const canvas_context = canvas.getContext("2d")
@@ -69,7 +69,7 @@ const video_timespan_element = document.getElementById("video_timespan")
 
 let video_settings
 
-function duration_to_string(duration) {
+function durationToString(duration) {
     const string = `${Math.floor(duration / 60 % 60)}:${(Math.round(duration) % 60).toString().padStart(2, 0)}`
 
     if (duration >= 3600)
@@ -80,7 +80,7 @@ function duration_to_string(duration) {
 
 video_element.addEventListener("volumechange", () => video_volume_slider_element.value = video_element.volume)
 video_element.addEventListener("timeupdate", () => {
-    video_timespan_element.textContent = duration_to_string(video_element.currentTime)
+    video_timespan_element.textContent = durationToString(video_element.currentTime)
 
     video_duration_slider_element.value = video_element.currentTime
 })
@@ -93,7 +93,7 @@ video_element.addEventListener("loadedmetadata", () => {
     video_width_element.textContent = video_settings.width
     video_height_element.textContent = video_settings.height
     video_framerate_element.textContent = video_settings.frameRate
-    video_duration_element.textContent = duration_to_string(video_element.duration)
+    video_duration_element.textContent = durationToString(video_element.duration)
 
     video_duration_slider_element.max = video_element.duration
 })
@@ -139,7 +139,7 @@ if ("AudioEncoder" in window) {
 const video_upload_form_element = document.getElementById("video_upload_form")
 let uploading_video = false
 
-function get_video_encode_options_list(width, height, framerate) {
+function getVideoEncodeOptionsList(width, height, framerate) {
     const aspect_ratio = width / height
 
     return [
@@ -174,14 +174,14 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     uploading_video = true
 
-    const video_encode_options_list = get_video_encode_options_list(video_settings.width, video_settings.height, video_settings.frameRate)
+    const video_encode_options_list = getVideoEncodeOptionsList(video_settings.width, video_settings.height, video_settings.frameRate)
     const form_data = new FormData(video_upload_form_element)
     const params = {
         title: form_data.get("title"),
         framerate: video_settings.frameRate,
         duration: video_element.duration,
         resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution),
-        thumbnail: await encode_thumbnail(thumbnail_element.src),
+        thumbnail: await encodeThumbnail(thumbnail_element.src),
     };
 
     if (form_data.get("description").length)
@@ -193,7 +193,7 @@ video_upload_form_element.addEventListener("submit", async e => {
     const video_uuid = await (await fetch("/video", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
     const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
 
-    async function upload_video_chunk(chunk) {
+    async function uploadVideoChunk(chunk) {
         chunk.video_uuid = video_uuid
 
         if (chunk.data)
@@ -215,7 +215,7 @@ video_upload_form_element.addEventListener("submit", async e => {
             break
     }
 
-    await encode_video(video_element.src, video_encode_options_list, upload_video_chunk)
+    await encode_video(video_element.src, video_encode_options_list, uploadVideoChunk)
 
     console.log("Upload finished : " + video_uuid)
 })

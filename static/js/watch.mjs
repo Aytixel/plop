@@ -21,10 +21,10 @@ class VideoInfo {
         this.date = video_metadata.date
         this.vues = video_metadata.vues
 
-        this.#show_more.addEventListener("click", () => this.show_more = !this.show_more)
+        this.#show_more.addEventListener("click", () => this.showMore = !this.showMore)
     }
 
-    set show_more(show_more) {
+    set showMore(show_more) {
         if (this.#info.show_more != !!show_more) {
             const content = this.#show_more.textContent
 
@@ -35,7 +35,7 @@ class VideoInfo {
         }
     }
 
-    get show_more() {
+    get showMore() {
         return this.#info.show_more
     }
 
@@ -73,7 +73,7 @@ class VideoInfo {
 window.video_info = new VideoInfo(video_metadata)
 
 // load and manage video stream
-const video_player = new VideoPlayer(video_metadata.uuid, video_metadata.title, video_metadata.duration)
+const video_player = new VideoPlayer(video_metadata)
 const response = await fetch(`/thumbnail/${video_metadata.uuid}`)
 const t0 = Date.now()
 const data = await response.blob()

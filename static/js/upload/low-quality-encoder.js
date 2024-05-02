@@ -1,7 +1,7 @@
 const video_encode_interval = 2000
 const encoding_bitrate_multiplier = 0.12
 
-function encode_single_video(url, encode_options, callback) {
+function encodeSingleVideo(url, encode_options, callback) {
     return new Promise(resolve => {
         const canvas = document.createElement("canvas")
         const canvas_context = canvas.getContext("2d")
@@ -12,14 +12,14 @@ function encode_single_video(url, encode_options, callback) {
         const video = document.createElement("video")
         let running = true
 
-        function update_canvas() {
+        function updateCanvas() {
             if (running) {
                 canvas_context.drawImage(video, 0, 0, encode_options.width, encode_options.height)
-                requestAnimationFrame(update_canvas)
+                requestAnimationFrame(updateCanvas)
             }
         }
 
-        requestAnimationFrame(update_canvas)
+        requestAnimationFrame(updateCanvas)
 
         video.src = url
         video.addEventListener("loadedmetadata", () => {
@@ -63,7 +63,7 @@ function encode_single_video(url, encode_options, callback) {
     })
 }
 
-function encode_multiple_video(url, encode_options_list, callback) {
+function encodeMultipleVideo(url, encode_options_list, callback) {
     return new Promise(resolve => {
         const canvas_list = encode_options_list.map(encode_options => {
             const canvas = document.createElement("canvas")
@@ -79,17 +79,17 @@ function encode_multiple_video(url, encode_options_list, callback) {
         const video = document.createElement("video")
         let running = true
 
-        function update_canvas() {
+        function updateCanvas() {
             if (running) {
                 for (const canvas of canvas_list) {
                     canvas.canvas_context.drawImage(video, 0, 0, canvas.canvas.width, canvas.canvas.height)
                 }
 
-                requestAnimationFrame(update_canvas)
+                requestAnimationFrame(updateCanvas)
             }
         }
 
-        requestAnimationFrame(update_canvas)
+        requestAnimationFrame(updateCanvas)
 
         video.src = url
         video.addEventListener("ended", () => running = false)
@@ -138,15 +138,15 @@ function encode_multiple_video(url, encode_options_list, callback) {
     })
 }
 
-async function encode_video(url, encode_options_list, callback) {
+async function encodeVideo(url, encode_options_list, callback) {
     const low_encode_options_list = encode_options_list.filter(encode_options => encode_options.resolution <= 360)
     const high_encode_options_list = encode_options_list.filter(encode_options => encode_options.resolution > 360)
 
     if (low_encode_options_list.length)
-        await encode_multiple_video(url, low_encode_options_list, callback)
+        await encodeMultipleVideo(url, low_encode_options_list, callback)
 
     for (const encode_options of high_encode_options_list)
-        await encode_single_video(url, encode_options, callback)
+        await encodeSingleVideo(url, encode_options, callback)
 }
 
-export default encode_video
+export default encodeVideo

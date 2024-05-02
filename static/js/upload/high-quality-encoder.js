@@ -1,6 +1,6 @@
 import { Muxer, StreamTarget } from "https://cdn.jsdelivr.net/npm/webm-muxer@3.1/+esm"
 
-function encode_audio(url, audio_config, callback) {
+function encodeAudio(url, audio_config, callback) {
     return new Promise((resolve, reject) => {
         const video = document.createElement("video")
 
@@ -46,7 +46,7 @@ function encode_audio(url, audio_config, callback) {
 
 const encoding_bitrate_multiplier = 0.12
 
-function encode_video(url, encode_options_list, callback) {
+function encodeVideo(url, encode_options_list, callback) {
     return new Promise((resolve, reject) => {
         console.log(encode_options_list)
 
@@ -124,7 +124,7 @@ function encode_video(url, encode_options_list, callback) {
                 }
                 let video_encoder_configured = false
 
-                async function test_video_encoder_config(hardware_acceleration) {
+                async function testVideoEncoderConfig(hardware_acceleration) {
                     video_encoder_config.hardwareAcceleration = hardware_acceleration
 
                     if (!video_encoder_configured && (await VideoEncoder.isConfigSupported(video_encoder_config)).supported) {
@@ -133,8 +133,8 @@ function encode_video(url, encode_options_list, callback) {
                     }
                 }
 
-                await test_video_encoder_config("prefer-hardware")
-                await test_video_encoder_config("prefer-software")
+                await testVideoEncoderConfig("prefer-hardware")
+                await testVideoEncoderConfig("prefer-software")
 
                 if (!video_encoder_configured) {
                     reject("No configuration found")
@@ -153,7 +153,7 @@ function encode_video(url, encode_options_list, callback) {
             if (video.audioTracks.length) {
                 let start_timestamp = -1
 
-                audio_encoder = encode_audio(url, audio_config, (chunk, metadata) => {
+                audio_encoder = encodeAudio(url, audio_config, (chunk, metadata) => {
                     if (start_timestamp == -1)
                         start_timestamp = chunk.timestamp
 
@@ -168,7 +168,7 @@ function encode_video(url, encode_options_list, callback) {
             const duration = Math.round(video.duration * 1_000_000)
             const high_encode_options = encode_options_list[encode_options_list.length - 1]
 
-            async function encode_frame() {
+            async function encodeFrame() {
                 console.log(`Time : ${video.currentTime}s`)
 
                 frame_count++
@@ -214,12 +214,12 @@ function encode_video(url, encode_options_list, callback) {
 
                 console.timeEnd("Encode time")
                 console.log(`Frame count : ${frame_count}`)
-                video.removeEventListener("timeupdate", encode_frame)
+                video.removeEventListener("timeupdate", encodeFrame)
 
                 resolve()
             }
 
-            video.addEventListener("timeupdate", encode_frame)
+            video.addEventListener("timeupdate", encodeFrame)
 
             console.time("Encode time")
 
@@ -228,4 +228,4 @@ function encode_video(url, encode_options_list, callback) {
     })
 }
 
-export default encode_video
+export default encodeVideo
