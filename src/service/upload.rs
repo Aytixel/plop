@@ -74,7 +74,7 @@ struct PutVideo {
     thumbnail: String,
 }
 
-#[put("/video")]
+#[put("/upload")]
 async fn put(
     payload: Json<PutVideo>,
     data: Data<AppState<'_>>,
@@ -147,7 +147,7 @@ pub mod uuid {
             resolution: u16,
         }
 
-        #[post("/video/{uuid}/{resolution}")]
+        #[post("/upload/{uuid}/{resolution}")]
         async fn post(
             params: Path<PostVideo>,
             mut payload: Payload,
