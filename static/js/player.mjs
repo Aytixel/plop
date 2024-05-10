@@ -133,7 +133,7 @@ export class VideoPlayer extends EventTarget {
 
         // listen on video event and update ui
         const updatePlayButton = () => this.#video_player.dataset.paused = this.paused
-        const updateDuration = () => this.#duration.textContent = this.#durationToString(this.#progress_slider.max = this.#video.duration)
+        const updateDuration = () => this.#duration.textContent = this.#durationToString(this.#progress_slider.max = this.duration)
 
         this.#video.addEventListener("play", updatePlayButton)
         this.#video.addEventListener("pause", updatePlayButton)

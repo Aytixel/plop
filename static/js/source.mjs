@@ -29,6 +29,8 @@ export class VideoSource extends MediaSource {
             this.#buffered = this.#source_buffer.buffered
             this.duration = this.#video_metadata.duration
 
+            console.log(`Media type : video/webm;codecs=\"vp9${this.hasAudio ? ",opus" : ""}\"`)
+
             const appendSegment = () => {
                 if (this.#chunk_buffer.length) {
                     this.#appending_segment = true
@@ -136,13 +138,17 @@ export class VideoSource extends MediaSource {
     }
 
     async #fetch() {
+        const start = Math.round(this.#start * 1_000_000_000)
+        const end = Math.round(Math.min(this.#start + this.#length, this.duration) * 1_000_000_000)
+
+        if (start == end)
+            throw "Request rejected : length of zero"
+
         const abort_controller = new AbortController()
         const timeout_id = this.#setTimeout("request_latency", abort_controller)
         const t0 = Date.now()
-        const response = await fetch(`/video/${this.#video_metadata.uuid
-            }/${this.resolution
-            }/${Math.round(this.#start * 1_000_000_000)
-            }/${Math.round(Math.min(this.#start + this.#length, this.duration) * 1_000_000_000)}`,
+        const response = await fetch(
+            `/video/${this.#video_metadata.uuid}/${this.resolution}/${start}/${end}`,
             { signal: abort_controller.signal }
         )
         const t1 = Date.now()

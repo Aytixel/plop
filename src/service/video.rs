@@ -166,32 +166,36 @@ pub mod uuid {
                 .find(|track| track.track_type() == TrackType::Video)
                 .map(|track| {
                     let video = track.video().unwrap();
+                    let video_track = segment.add_video_track(
+                        video.pixel_width().get() as u32,
+                        video.pixel_height().get() as u32,
+                        Some(1),
+                        VideoCodecId::VP9,
+                    );
 
-                    (
-                        track.track_number().get(),
-                        segment.add_video_track(
-                            video.pixel_width().get() as u32,
-                            video.pixel_height().get() as u32,
-                            None,
-                            VideoCodecId::VP9,
-                        ),
-                    )
+                    if let Some(codec_private) = track.codec_private() {
+                        segment.set_codec_private(1, codec_private);
+                    }
+
+                    (track.track_number().get(), video_track)
                 });
             let mut audio_track = tracks
                 .iter()
                 .find(|track| track.track_type() == TrackType::Audio)
                 .map(|track| {
                     let audio = track.audio().unwrap();
+                    let audio_track = segment.add_audio_track(
+                        audio.sampling_frequency() as i32,
+                        audio.channels().get() as i32,
+                        Some(2),
+                        AudioCodecId::Opus,
+                    );
 
-                    (
-                        track.track_number().get(),
-                        segment.add_audio_track(
-                            (audio.sampling_frequency() * 1000.0) as i32,
-                            audio.channels().get() as i32,
-                            None,
-                            AudioCodecId::Opus,
-                        ),
-                    )
+                    if let Some(codec_private) = track.codec_private() {
+                        segment.set_codec_private(2, codec_private);
+                    }
+
+                    (track.track_number().get(), audio_track)
                 });
 
             let timescale = file.info().timestamp_scale().get();
@@ -297,7 +301,8 @@ pub mod uuid {
 
                     continue;
                 }
-                if timestamp == start_timestamp {
+
+                if timestamp == start_timestamp && keyframe {
                     video_keyframe_buffer = video_keyframe_buffer.pop().as_slice().to_vec();
                     audio_keyframe_buffer = audio_keyframe_buffer.pop().as_slice().to_vec();
                     start_timestamp = timestamp;

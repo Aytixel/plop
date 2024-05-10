@@ -72,6 +72,7 @@ struct PutVideo {
     #[validate(custom(function = "valid_resolutions"))]
     resolutions: HashSet<u16>,
     thumbnail: String,
+    has_audio: bool,
 }
 
 #[put("/upload")]
@@ -112,6 +113,7 @@ async fn put(
         state_720p: Set(has_resolution(720)),
         state_1080p: Set(has_resolution(1080)),
         state_1440p: Set(has_resolution(1440)),
+        has_audio: Set(payload.has_audio),
         ..Default::default()
     };
 

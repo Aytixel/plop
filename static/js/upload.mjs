@@ -136,6 +136,7 @@ video_upload_form_element.addEventListener("submit", async e => {
         duration: video_element.duration,
         resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution),
         thumbnail: await encodeThumbnail(thumbnail_element.src),
+        has_audio: !!video_element.audioTracks.length
     };
 
     if (form_data.get("description").length)
