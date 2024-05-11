@@ -28,12 +28,13 @@ export class VideoPlayer extends EventTarget {
         if (typeof options.title === "string") this.#metadata.title = options.title
         if (typeof options.ambient_light === "boolean") this.#metadata.ambient_light = options.ambient_light
 
+        const shortcut_of_focus = (typeof options.shortcut_of_focus === "boolean") ? options.shortcut_of_focus : false
         const duration = (typeof options.duration === "number") ? options.duration : -1
         let start_time = (typeof options.start_time === "number") ? options.start_time : parseFloat(new URLSearchParams(location.search).get("t"))
 
         // setup media session
         if ("mediaSession" in navigator) {
-            const updateTime = () => navigator.mediaSession.setPositionState({
+            const updateTime = () => !isNaN(this.duration) && navigator.mediaSession.setPositionState({
                 duration: this.duration,
                 playbackRate: this.#video.playbackRate,
                 position: this.currentTime
@@ -187,23 +188,27 @@ export class VideoPlayer extends EventTarget {
         this.#video.addEventListener("loadeddata", () => setTimeout(() => this.#updateCanvas(), 100))
 
         // key bindings
+        this.#video_player.addEventListener("pointerdown", () => this.#video_player.focus())
+
         window.addEventListener("keydown", e => {
-            const key_bindings = {
-                " ": play,
-                f: fullscreen,
-                p: () => this.requestPictureInPicture(),
-                m: mute,
-                arrowleft: () => this.currentTime = Math.max(this.currentTime - 2, 0),
-                arrowright: () => this.currentTime = Math.min(this.currentTime + 2, this.duration),
-                arrowup: () => this.volume = Math.min(this.volume + .1, 1),
-                arrowdown: () => this.volume = Math.max(this.volume - .1, 0),
-            }
-            const key = e.key.toLowerCase()
+            if (!shortcut_of_focus || this.#video_player.contains(document.activeElement) || this.#video_player == document.activeElement) {
+                const key_bindings = {
+                    " ": play,
+                    f: fullscreen,
+                    p: () => this.requestPictureInPicture(),
+                    m: mute,
+                    arrowleft: () => this.currentTime = Math.max(this.currentTime - 2, 0),
+                    arrowright: () => this.currentTime = Math.min(this.currentTime + 2, this.duration),
+                    arrowup: () => this.volume = Math.min(this.volume + .1, 1),
+                    arrowdown: () => this.volume = Math.max(this.volume - .1, 0),
+                }
+                const key = e.key.toLowerCase()
 
-            if (key in key_bindings) {
-                e.preventDefault()
+                if (key in key_bindings) {
+                    e.preventDefault()
 
-                key_bindings[key]()
+                    key_bindings[key]()
+                }
             }
         })
 

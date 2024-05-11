@@ -49,7 +49,7 @@
 }
 
 #video_player video {
-    width: auto;
+    width: 100%;
     height: auto;
     max-width: inherit;
     max-height: inherit;
