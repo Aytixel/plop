@@ -98,12 +98,13 @@ export class VideoSource extends MediaSource {
         if (!this.#loading && this.#continue) {
             this.#loading = true
             this.#start = this.#video.currentTime
+            this.#length ||= this.#min_chunk_size
 
             this.#nextSegment()
         }
     }
 
-    #log(speed, download_latency, request_latency) {
+    #log(speed, download_latency, request_latency, range_start, range_end) {
         console.log(
             this.resolution.toString() +
             "p, " +
@@ -112,7 +113,11 @@ export class VideoSource extends MediaSource {
             (Math.round(download_latency * 100) / 100).toString() +
             "ms, request : " +
             (Math.round(request_latency * 100) / 100).toString() +
-            "ms"
+            "ms, range : [" +
+            range_start +
+            ":" +
+            range_end +
+            "]"
         )
     }
 
@@ -198,7 +203,7 @@ export class VideoSource extends MediaSource {
             const { response, abort_controller, request_latency, range_start, range_end } = await this.#fetch()
             const { data, download_latency, speed } = await this.#read(response, abort_controller)
 
-            this.#log(speed, download_latency, request_latency)
+            this.#log(speed, download_latency, request_latency, range_start, range_end)
             this.#getResolution(speed)
             this.#start = range_end
 
