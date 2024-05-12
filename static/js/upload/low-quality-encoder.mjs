@@ -110,6 +110,7 @@ function encodeMultipleVideo(url, encode_options_list, callback) {
                 const recorder = new MediaRecorder(video_stream, {
                     audioBitsPerSecond: 128000,
                     videoBitsPerSecond: encode_options_list[key].width * encode_options_list[key].height * encode_options_list[key].framerate * encoding_bitrate_multiplier,
+                    videoKeyFrameIntervalDuration: 1,
                     mimeType: mime_type
                 })
                 let size = 0

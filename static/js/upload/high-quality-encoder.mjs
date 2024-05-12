@@ -186,7 +186,7 @@ function encodeVideo(url, encode_options_list, callback) {
                         encode_options.timestamp = Math.min(encode_options.timestamp + Math.round(1_000_000 / encode_options.framerate), duration)
 
                         encode_options.video_encoder.encode(video_frame, {
-                            keyFrame: frame_count % (encode_options.framerate * 4) == 0
+                            keyFrame: frame_count % encode_options.framerate == 0
                         })
                     }
                 }

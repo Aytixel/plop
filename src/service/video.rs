@@ -205,7 +205,7 @@ pub mod uuid {
             let mut video_keyframe_buffer = Vec::new();
             let mut audio_keyframe_buffer = Vec::new();
 
-            file.seek(params.start_timestamp.saturating_sub(4_000_000_000) / timescale)
+            file.seek(params.start_timestamp.saturating_sub(1_999_999_999) / timescale)
                 .unwrap();
 
             // mux before from the last keyframe to the first frame

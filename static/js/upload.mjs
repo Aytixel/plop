@@ -117,7 +117,7 @@ function getVideoEncodeOptionsList(width, height, framerate) {
         }
 
         return encode_options
-    }).filter((encode_options, index) => index == 0 || encode_options.width <= width)
+    }).filter((encode_options, index) => index == 0 || encode_options.resolution <= Math.min(width, height))
 }
 
 video_upload_form_element.addEventListener("submit", async e => {
