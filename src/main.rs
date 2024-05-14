@@ -5,9 +5,12 @@ use std::{env, fs::File, io::BufReader};
 
 use actix_cors::Cors;
 use actix_files::Files;
-use actix_web::{middleware, web::Data, App, HttpServer};
+use actix_web::{middleware, web::Data, App, HttpRequest, HttpServer};
 use actix_web_validator5::JsonConfig;
 use anyhow::anyhow;
+use clerk_rs::{
+    apis::jwks_api::Jwks, clerk::Clerk, validators::actix::validate_jwt, ClerkConfiguration,
+};
 use fred::{
     prelude::{ClientLike, RedisClient},
     types::{PerformanceConfig, ReconnectPolicy, RedisConfig},
@@ -33,6 +36,7 @@ pub struct AppState<'a> {
     db_connection: DatabaseConnection,
     redis_client: RedisClient,
     handlebars: Handlebars<'a>,
+    clerk: Clerk,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -70,10 +74,18 @@ async fn main() -> anyhow::Result<()> {
         },
     )?;
 
+    let clerk = Clerk::new(ClerkConfiguration::new(
+        None,
+        None,
+        Some(env::var("CLERK_SECRET_KEY").expect("CLERK_SECRET_KEY is not set in .env file")),
+        None,
+    ));
+
     let state = Data::new(AppState {
         db_connection,
         redis_client,
         handlebars,
+        clerk,
     });
 
     HttpServer::new(move || {
@@ -85,6 +97,7 @@ async fn main() -> anyhow::Result<()> {
             .wrap(cors)
             .wrap(middleware::Compress::default())
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
+            .service(service::index::get)
             .service(service::thumbnail::uuid::get)
             .service(service::upload::get)
             .service(service::upload::put)
@@ -94,14 +107,24 @@ async fn main() -> anyhow::Result<()> {
             .service(
                 Files::new("/", "./static/")
                     .use_etag(false)
-                    .use_last_modified(false)
-                    .index_file("html/index.html"),
+                    .use_last_modified(false),
             )
     })
     .bind_rustls_0_22(format!("{host}:{port}"), load_rustls_config()?)?
     .run()
     .await
     .anyhow()
+}
+
+pub async fn authorize(req: &HttpRequest, clerk: &Clerk) -> bool {
+    let Some(access_token) = req.cookie("__session") else {
+        return false;
+    };
+    let Ok(jwks) = Jwks::get_jwks(clerk).await else {
+        return false;
+    };
+
+    validate_jwt(access_token.value(), jwks).is_ok()
 }
 
 fn load_rustls_config() -> anyhow::Result<ServerConfig> {

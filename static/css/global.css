@@ -1,0 +1,107 @@
+@import "palette.css";
+@import "font.css";
+
+* {
+    position: relative;
+    z-index: 0;
+
+    margin: 0;
+
+    box-sizing: border-box;
+
+    padding: 0;
+
+    color: inherit;
+}
+
+body {
+    color: rgb(var(--color-dark));
+
+    background-color: rgb(var(--color-light));
+}
+
+@media (max-width: 550px) or (max-height: 550px) {
+    body {
+        font-size: .8em;
+    }
+}
+
+footer {
+    height: 5em;
+}
+
+a {
+    text-decoration: none;
+
+    color: color-mix(in srgb, rgb(var(--color-primary)) 75%, rgb(var(--color-dark)));
+}
+
+/*
+    Button
+*/
+button {
+    --bg-color: rgb(var(--color-dark) / .1);
+    --hover-bg-color: rgb(var(--color-dark) / .25);
+
+    padding: .5em 1em;
+
+    height: 3em;
+
+    border: none;
+    border-radius: .5em;
+
+    appearance: none;
+    outline: none;
+
+    line-height: 2em;
+
+    font-weight: bold;
+
+    background-color: var(--bg-color);
+
+    transition: .3s background-color, .3s color, .3s .15s box-shadow;
+}
+
+button:hover {
+    background-color: var(--hover-bg-color);
+}
+
+button:focus-visible {
+    box-shadow: 0 0 0 .1em var(--hover-bg-color);
+
+    background-color: var(--hover-bg-color);
+
+    transition-delay: 0s;
+}
+
+button.rounded {
+    padding: .5em 1.5em;
+
+    border-radius: 1.5em;
+}
+
+button.inverted {
+    --bg-color: #0000;
+    --hover-bg-color: rgb(var(--color-dark) / .1);
+
+    font-weight: normal;
+
+}
+
+button.important {
+    --bg-color: rgb(var(--color-dark) / 1);
+    --hover-bg-color: rgb(var(--color-dark) / 1);
+
+    color: rgb(var(--color-light));
+}
+
+button svg {
+    height: 2em;
+    width: 2em;
+
+    margin-right: .5em;
+
+    vertical-align: bottom;
+
+    translate: -.5em 0;
+}

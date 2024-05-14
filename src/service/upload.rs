@@ -7,7 +7,7 @@ use actix_web::{
     http::header,
     post, put,
     web::{Data, Header, Payload},
-    HttpResponse, Responder,
+    HttpRequest, HttpResponse, Responder,
 };
 use actix_web_validator5::{Json, Path};
 use data_url::DataUrl;
@@ -27,6 +27,7 @@ use tokio_stream::StreamExt;
 use validator::{Validate, ValidationError};
 
 use crate::{
+    authorize,
     entity::{sea_orm_active_enums::VideoUploadState, video},
     service::video::uuid::resolution::{find_video, get_resolution, VIDEO_REDIS_TIMEOUT},
     AppState,
@@ -35,7 +36,13 @@ use crate::{
 use super::video::valid_resolution;
 
 #[get("/upload")]
-async fn get(data: Data<AppState<'_>>) -> impl Responder {
+async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
+    if !authorize(&req, &data.clerk).await {
+        return HttpResponse::TemporaryRedirect()
+            .insert_header(("Location", "/"))
+            .finish();
+    }
+
     HttpResponse::Ok().body(
         data.handlebars
             .render(
@@ -77,9 +84,14 @@ struct PutVideo {
 
 #[put("/upload")]
 async fn put(
+    req: HttpRequest,
     payload: Json<PutVideo>,
     data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
+    if !authorize(&req, &data.clerk).await {
+        return Ok(HttpResponse::Unauthorized().finish());
+    }
+
     let thumbnail_data_url = DataUrl::process(&payload.thumbnail)
         .map_err(|_| ErrorInternalServerError("Unable to process thumbnail data"))?;
     let thumbnail_data = thumbnail_data_url
@@ -133,7 +145,7 @@ async fn put(
         file.write(&thumbnail_data).await.ok();
     }
 
-    Ok(uuid.to_string())
+    Ok(HttpResponse::Ok().body(uuid.to_string()))
 }
 
 pub mod uuid {
@@ -151,11 +163,16 @@ pub mod uuid {
 
         #[post("/upload/{uuid}/{resolution}")]
         async fn post(
+            req: HttpRequest,
             params: Path<PostVideo>,
             mut payload: Payload,
             data: Data<AppState<'_>>,
             range_header_option: Option<Header<header::Range>>,
         ) -> actix_web::Result<impl Responder> {
+            if !authorize(&req, &data.clerk).await {
+                return Ok(HttpResponse::Unauthorized().finish());
+            }
+
             let resolution_column = get_resolution(params.resolution)?;
             let mut video = find_video(
                 params.uuid,
@@ -233,7 +250,7 @@ pub mod uuid {
                     .map_err(|_| ErrorInternalServerError("Unable to end the video file"))?;
             }
 
-            Ok("")
+            Ok(HttpResponse::Ok().body(""))
         }
     }
 }

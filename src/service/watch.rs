@@ -75,38 +75,38 @@ pub mod uuid {
             "Apparemment pas de spoil par ici donc pas de description.";
 
         Ok(HttpResponse::Ok().body(
-        data.handlebars
-            .render(
-                "watch",
-                &json!({
-                    "title": video.title,
-                    "tags": video.tags.clone().map(|tags| tags.split(", ").map(str::to_string).collect::<Vec<String>>()),
-                    "tags_short": video.tags.map(|tags| tags.split(", ").take(3).map(str::to_string).collect::<Vec<String>>()),
-                    "description": video.description,
-                    "meta_description": video.description.map_or(DEFAULT_META_DESCRIPTION.to_string(), |mut description| {
-                        if description.is_empty() {
-                            DEFAULT_META_DESCRIPTION.to_string()
-                        } else if description.len() > 100 {
-                            description.truncate(100);
-                            description + "..."
-                        } else {
-                            description
-                        }
+            data.handlebars
+                .render(
+                    "watch",
+                    &json!({
+                        "title": video.title,
+                        "tags": video.tags.clone().map(|tags| tags.split(", ").map(str::to_string).collect::<Vec<String>>()),
+                        "tags_short": video.tags.map(|tags| tags.split(", ").take(3).map(str::to_string).collect::<Vec<String>>()),
+                        "description": video.description,
+                        "meta_description": video.description.map_or(DEFAULT_META_DESCRIPTION.to_string(), |mut description| {
+                            if description.is_empty() {
+                                DEFAULT_META_DESCRIPTION.to_string()
+                            } else if description.len() > 100 {
+                                description.truncate(100);
+                                description + "..."
+                            } else {
+                                description
+                            }
+                        }),
+                        "framerate": video.framerate,
+                        "duration": video.duration,
+                        "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
+                        "uuid": video.uuid,
+                        "resolutions": resolutions,
+                        "lengths": lengths,
+                        "bitrates": bitrates,
+                        "has_audio": video.has_audio,
+                        "vues": video.vues,
+                        "width": 1280,
+                        "height": 720
                     }),
-                    "framerate": video.framerate,
-                    "duration": video.duration,
-                    "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
-                    "uuid": video.uuid,
-                    "resolutions": resolutions,
-                    "lengths": lengths,
-                    "bitrates": bitrates,
-                    "has_audio": video.has_audio,
-                    "vues": video.vues,
-                    "width": 1280,
-                    "height": 720
-                }),
-            )
-            .unwrap(),
-    ))
+                )
+                .unwrap(),
+        ))
     }
 }

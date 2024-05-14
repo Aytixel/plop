@@ -12,10 +12,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
     <title>Plop</title>
+    <link rel="preload stylesheet" as="style" type="text/css" href="/css/index.css">
+    <script src="/js/index.mjs" type="module"></script>
 </head>
 
 <body>
-
+    <account-button data-key="{{clerk.publishable_key}}" data-app-name="{{clerk.app_name}}"></account-button>
 </body>
 
 </html>
