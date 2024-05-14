@@ -37,9 +37,10 @@ a {
 }
 
 /*
-    Button
+    Input
 */
-button {
+button,
+input {
     --bg-color: rgb(var(--color-dark) / .1);
     --hover-bg-color: rgb(var(--color-dark) / .25);
 
@@ -56,17 +57,18 @@ button {
     line-height: 2em;
 
     font-weight: bold;
+    vertical-align: middle;
 
     background-color: var(--bg-color);
 
     transition: .3s background-color, .3s color, .3s .15s box-shadow;
 }
 
-button:hover {
+:is(button, input):hover {
     background-color: var(--hover-bg-color);
 }
 
-button:focus-visible {
+:is(button, input):focus-visible {
     box-shadow: 0 0 0 .1em var(--hover-bg-color);
 
     background-color: var(--hover-bg-color);
@@ -74,13 +76,13 @@ button:focus-visible {
     transition-delay: 0s;
 }
 
-button.rounded {
+:is(button, input).rounded {
     padding: .5em 1.5em;
 
     border-radius: 1.5em;
 }
 
-button.inverted {
+:is(button, input).inverted {
     --bg-color: #0000;
     --hover-bg-color: rgb(var(--color-dark) / .1);
 
@@ -88,7 +90,7 @@ button.inverted {
 
 }
 
-button.important {
+:is(button, input).important {
     --bg-color: rgb(var(--color-dark) / 1);
     --hover-bg-color: rgb(var(--color-dark) / 1);
 
