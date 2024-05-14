@@ -1,1 +1,1 @@
-import "./account-button.mjs"
+import "/component/account-button/account-button.mjs"

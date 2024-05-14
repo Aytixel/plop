@@ -24,6 +24,8 @@ class AccountButtonElement extends HTMLElement {
                 user_profile.ariaLabel = "Profil utilisateur"
                 image.src = Clerk.user.imageUrl
                 image.alt = "Avatar"
+                image.width = 30
+                image.height = 30
                 style.textContent = `
                     ${seletor} button {
                         --size: 2.5em;

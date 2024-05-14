@@ -1,8 +1,7 @@
 @import "palette.css";
 @import "font.css";
-@import "player.css";
 
-#video_player {
+video-player {
     max-width: 640px;
     max-height: 360px;
 }

@@ -1,5 +1,5 @@
-import { VideoPlayer } from "./player.mjs"
-import { VideoSource } from "./source.mjs"
+import "/component/video-player/video-player.mjs"
+import { VideoSource } from "./video-source.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
 
@@ -73,7 +73,7 @@ class VideoInfo {
 window.video_info = new VideoInfo(video_metadata)
 
 // load and manage video stream
-const video_player = new VideoPlayer(video_metadata)
+const video_player = document.querySelector("video-player").getPlayer(video_metadata)
 const response = await fetch(`/thumbnail/${video_metadata.uuid}`)
 const t0 = Date.now()
 const data = await response.blob()

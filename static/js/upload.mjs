@@ -1,4 +1,4 @@
-import { VideoPlayer } from "./player.mjs"
+import "/component/video-player/video-player.mjs"
 
 if ("mozCaptureStream" in HTMLMediaElement.prototype)
     HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
@@ -57,7 +57,7 @@ thumbnail_filepicker_element.addEventListener("input", () => {
         thumbnail_element.src = URL.createObjectURL(thumbnail_filepicker_element.files[0])
 })
 
-const video_element = new VideoPlayer({ ambient_light: false, shortcut_of_focus: true })
+const video_element = document.querySelector("video-player").getPlayer({ ambient_light: false, shortcut_of_focus: true })
 const video_filepicker_element = document.getElementById("video_filepicker")
 
 const video_width_element = document.getElementById("video_width")
