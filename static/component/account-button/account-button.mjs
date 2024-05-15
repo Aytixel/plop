@@ -26,7 +26,7 @@ class AccountButtonElement extends HTMLElement {
                 image.alt = "Avatar"
                 image.width = 30
                 image.height = 30
-                style.textContent = `
+                style.textContent = /*css*/`
                     ${seletor} button {
                         --size: 2.5em;
 

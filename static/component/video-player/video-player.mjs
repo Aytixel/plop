@@ -462,7 +462,7 @@ class VideoPlayerElement extends HTMLElement {
         const title = this.getAttribute("title") || ""
         const duration = this.getAttribute("duration") || ""
 
-        shadow.innerHTML = `
+        shadow.innerHTML = /*html*/`
             <div id="video_player" data-ambient_light="true" data-paused="true" data-ended="false" data-volume="high" data-fullscreen="false" tabindex="0" style="display: none">
                 <canvas width="256" height="144"></canvas>
                 <video autoplay="" playsinline="" width="${width}" height="${height}"></video>
