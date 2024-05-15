@@ -27,8 +27,8 @@ use tokio_stream::StreamExt;
 use validator::{Validate, ValidationError};
 
 use crate::{
-    authorize,
     entity::{sea_orm_active_enums::VideoUploadState, video},
+    get_authentication_data,
     service::video::uuid::resolution::{find_video, get_resolution, VIDEO_REDIS_TIMEOUT},
     AppState,
 };
@@ -37,7 +37,7 @@ use super::video::valid_resolution;
 
 #[get("/upload")]
 async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
-    if !authorize(&req, &data.clerk).await {
+    if get_authentication_data(&req, &data.clerk).await.is_none() {
         return HttpResponse::TemporaryRedirect()
             .insert_header(("Location", "/"))
             .finish();
@@ -88,7 +88,7 @@ async fn put(
     payload: Json<PutVideo>,
     data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
-    if !authorize(&req, &data.clerk).await {
+    if get_authentication_data(&req, &data.clerk).await.is_none() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -169,7 +169,7 @@ pub mod uuid {
             data: Data<AppState<'_>>,
             range_header_option: Option<Header<header::Range>>,
         ) -> actix_web::Result<impl Responder> {
-            if !authorize(&req, &data.clerk).await {
+            if get_authentication_data(&req, &data.clerk).await.is_none() {
                 return Ok(HttpResponse::Unauthorized().finish());
             }
 

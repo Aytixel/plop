@@ -9,7 +9,11 @@ use actix_web::{middleware, web::Data, App, HttpRequest, HttpServer};
 use actix_web_validator5::JsonConfig;
 use anyhow::anyhow;
 use clerk_rs::{
-    apis::jwks_api::Jwks, clerk::Clerk, validators::actix::validate_jwt, ClerkConfiguration,
+    apis::{jwks_api::Jwks, sessions_api::Session},
+    clerk::Clerk,
+    models::session::Status,
+    validators::actix::{validate_jwt, ClerkJwt},
+    ClerkConfiguration,
 };
 use fred::{
     prelude::{ClientLike, RedisClient},
@@ -116,15 +120,22 @@ async fn main() -> anyhow::Result<()> {
     .anyhow()
 }
 
-pub async fn authorize(req: &HttpRequest, clerk: &Clerk) -> bool {
+pub async fn get_authentication_data(req: &HttpRequest, clerk: &Clerk) -> Option<ClerkJwt> {
     let Some(access_token) = req.cookie("__session") else {
-        return false;
+        return None;
     };
     let Ok(jwks) = Jwks::get_jwks(clerk).await else {
-        return false;
+        return None;
+    };
+    let Ok((_, jwt)) = validate_jwt(access_token.value(), jwks) else {
+        return None;
     };
 
-    validate_jwt(access_token.value(), jwks).is_ok()
+    Session::get_session(clerk, &jwt.sid)
+        .await
+        .ok()
+        .map(|session| (session.status == Status::Active).then_some(jwt))
+        .flatten()
 }
 
 fn load_rustls_config() -> anyhow::Result<ServerConfig> {
