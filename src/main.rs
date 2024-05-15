@@ -107,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
             .wrap(cors)
             .wrap(middleware::Compress::default())
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
+            .wrap(middleware::NormalizePath::trim())
             .service(service::index::get)
             .service(service::thumbnail::uuid::get)
             .service(service::upload::get)

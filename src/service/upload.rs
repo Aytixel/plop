@@ -43,18 +43,20 @@ async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
             .finish();
     }
 
-    HttpResponse::Ok().body(
-        data.handlebars
-            .render(
-                "upload",
-                &json!({
-                    "width": 640,
-                    "height": 360,
-                    "clerk": data.clerk_config,
-                }),
-            )
-            .unwrap(),
-    )
+    HttpResponse::Ok()
+        .insert_header(("Cache-Control", "no-store"))
+        .body(
+            data.handlebars
+                .render(
+                    "upload",
+                    &json!({
+                        "width": 640,
+                        "height": 360,
+                        "clerk": data.clerk_config,
+                    }),
+                )
+                .unwrap(),
+        )
 }
 
 fn valid_resolutions(resolutions: &HashSet<u16>) -> Result<(), ValidationError> {
@@ -258,7 +260,7 @@ pub mod uuid {
                     .map_err(|_| ErrorInternalServerError("Unable to end the video file"))?;
             }
 
-            Ok(HttpResponse::Ok().body(""))
+            Ok(HttpResponse::Ok().finish())
         }
     }
 }
