@@ -3,6 +3,21 @@
 version = 3
 
 [[package]]
+name = "actix-analytics"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa40f6016acef670856690d7bc9eda7fbeb3507e0c13d5789a7af8332e170f83"
+dependencies = [
+ "actix-rt",
+ "actix-web",
+ "chrono",
+ "futures",
+ "lazy_static",
+ "reqwest",
+ "serde",
+]
+
+[[package]]
 name = "actix-codec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -640,8 +655,11 @@ checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "pure-rust-locales",
  "serde",
+ "wasm-bindgen",
  "windows-targets 0.52.5",
 ]
 
@@ -1959,6 +1977,7 @@ checksum = "d231b230927b5e4ad203db57bbcbee2802f6bce620b1e4a9024a07d94e2907ec"
 name = "plop"
 version = "0.1.0"
 dependencies = [
+ "actix-analytics",
  "actix-cors",
  "actix-files",
  "actix-web",
@@ -2056,6 +2075,12 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
+
+[[package]]
+name = "pure-rust-locales"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1190fd18ae6ce9e137184f207593877e70f39b015040156b1e05081cdfe3733a"
 
 [[package]]
 name = "quote"

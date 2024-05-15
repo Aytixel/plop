@@ -3,6 +3,7 @@ mod service;
 
 use std::{env, fs::File, io::BufReader};
 
+use actix_analytics::Analytics;
 use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{middleware, web::Data, App, HttpRequest, HttpServer};
@@ -51,6 +52,8 @@ async fn main() -> anyhow::Result<()> {
 
     let host = env::var("HOST").expect("HOST is not set in .env file");
     let port = env::var("PORT").expect("PORT is not set in .env file");
+    let analytics_api_key =
+        env::var("ANALYTICS_API_KEY").expect("ANALYTICS_API_KEY is not set in .env file");
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
@@ -104,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
         App::new()
             .app_data(state.clone())
             .app_data(JsonConfig::default().limit(131072))
+            .wrap(Analytics::new(analytics_api_key.clone()))
             .wrap(cors)
             .wrap(middleware::Compress::default())
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
