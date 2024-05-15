@@ -13,11 +13,12 @@
     <link rel="manifest" href="/site.webmanifest">
     <title>Plop</title>
     <link rel="preload stylesheet" as="style" type="text/css" href="/css/index.css">
+    {{> clerk-config}}
     <script src="/js/index.mjs" type="module"></script>
 </head>
 
 <body>
-    <account-button data-key="{{clerk.publishable_key}}" data-app-name="{{clerk.app_name}}"></account-button>
+    <account-button></account-button>
 </body>
 
 </html>

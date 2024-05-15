@@ -24,6 +24,7 @@ pub struct Model {
     pub state_1080p: VideoUploadState,
     pub state_1440p: VideoUploadState,
     pub has_audio: bool,
+    pub user_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

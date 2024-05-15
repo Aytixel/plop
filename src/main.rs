@@ -23,6 +23,7 @@ use handlebars::{DirectorySourceOptions, Handlebars};
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 use sea_orm::{Database, DatabaseConnection};
+use serde_json::{json, Value};
 pub trait AnyhowResult<T>: Sized {
     fn anyhow(self) -> anyhow::Result<T>;
 }
@@ -41,6 +42,7 @@ pub struct AppState<'a> {
     redis_client: RedisClient,
     handlebars: Handlebars<'a>,
     clerk: Clerk,
+    clerk_config: Value,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -90,6 +92,10 @@ async fn main() -> anyhow::Result<()> {
         redis_client,
         handlebars,
         clerk,
+        clerk_config: json!({
+            "publishable_key": env::var("CLERK_PUBLISHABLE_KEY").expect("CLERK_PUBLISHABLE_KEY is not set in .env file"),
+            "app_name": env::var("CLERK_APP_NAME").expect("CLERK_APP_NAME is not set in .env file")
+        }),
     });
 
     HttpServer::new(move || {

@@ -49,7 +49,8 @@ async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
                 "upload",
                 &json!({
                     "width": 640,
-                    "height": 360
+                    "height": 360,
+                    "clerk": data.clerk_config,
                 }),
             )
             .unwrap(),
@@ -88,9 +89,9 @@ async fn put(
     payload: Json<PutVideo>,
     data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
-    if get_authentication_data(&req, &data.clerk).await.is_none() {
-        return Ok(HttpResponse::Unauthorized().finish());
-    }
+    let Some(jwt) = get_authentication_data(&req, &data.clerk).await else {
+        return Ok(HttpResponse::Unauthorized().body("User not logged in"));
+    };
 
     let thumbnail_data_url = DataUrl::process(&payload.thumbnail)
         .map_err(|_| ErrorInternalServerError("Unable to process thumbnail data"))?;
@@ -126,6 +127,7 @@ async fn put(
         state_1080p: Set(has_resolution(1080)),
         state_1440p: Set(has_resolution(1440)),
         has_audio: Set(payload.has_audio),
+        user_id: Set(jwt.sub),
         ..Default::default()
     };
 
@@ -169,9 +171,9 @@ pub mod uuid {
             data: Data<AppState<'_>>,
             range_header_option: Option<Header<header::Range>>,
         ) -> actix_web::Result<impl Responder> {
-            if get_authentication_data(&req, &data.clerk).await.is_none() {
-                return Ok(HttpResponse::Unauthorized().finish());
-            }
+            let Some(jwt) = get_authentication_data(&req, &data.clerk).await else {
+                return Ok(HttpResponse::Unauthorized().body("User not logged in"));
+            };
 
             let resolution_column = get_resolution(params.resolution)?;
             let mut video = find_video(
@@ -181,6 +183,12 @@ pub mod uuid {
                 &data,
             )
             .await?;
+
+            if *video.user_id.as_ref() != jwt.sub {
+                return Ok(
+                    HttpResponse::Forbidden().body("You cannot upload in place of another user")
+                );
+            }
 
             create_dir_all(format!("./video/{}/", params.resolution))
                 .await
