@@ -207,7 +207,7 @@ class VideoPlayer extends EventTarget {
         this.#video_player.addEventListener("pointerdown", () => this.#video_player.focus())
 
         window.addEventListener("keydown", e => {
-            if (!shortcut_on_focus || this.#video_player.contains(document.activeElement) || this.#video_player == document.activeElement) {
+            if (!shortcut_on_focus || this.#video_player.contains(parent.activeElement) || this.#video_player == parent.activeElement) {
                 const key_bindings = {
                     " ": play,
                     f: fullscreen,
