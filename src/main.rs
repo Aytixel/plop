@@ -20,11 +20,13 @@ use fred::{
     prelude::{ClientLike, RedisClient},
     types::{PerformanceConfig, ReconnectPolicy, RedisConfig},
 };
-use handlebars::{DirectorySourceOptions, Handlebars};
+use handlebars::{
+    Context, DirectorySourceOptions, Handlebars, Helper, HelperResult, Output, RenderContext,
+};
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 use sea_orm::{Database, DatabaseConnection};
-use serde_json::{json, Value};
+use serde_json::json;
 pub trait AnyhowResult<T>: Sized {
     fn anyhow(self) -> anyhow::Result<T>;
 }
@@ -43,7 +45,6 @@ pub struct AppState<'a> {
     redis_client: RedisClient,
     handlebars: Handlebars<'a>,
     clerk: Clerk,
-    clerk_config: Value,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -89,16 +90,35 @@ async fn main() -> anyhow::Result<()> {
         Some(env::var("CLERK_SECRET_KEY").expect("CLERK_SECRET_KEY is not set in .env file")),
         None,
     ));
+    let clerk_script = handlebars.render(
+        "clerk-script",
+        &json!({
+            "publishable_key": env::var("CLERK_PUBLISHABLE_KEY").expect("CLERK_PUBLISHABLE_KEY is not set in .env file"),
+            "app_name": env::var("CLERK_APP_NAME").expect("CLERK_APP_NAME is not set in .env file")
+        }),
+    )?;
+
+    handlebars.register_helper(
+        "clerk-script",
+        Box::new(
+            move |_: &Helper,
+                  _: &Handlebars,
+                  _: &Context,
+                  _: &mut RenderContext,
+                  output: &mut dyn Output|
+                  -> HelperResult {
+                output.write(&clerk_script)?;
+
+                Ok(())
+            },
+        ),
+    );
 
     let state = Data::new(AppState {
         db_connection,
         redis_client,
         handlebars,
         clerk,
-        clerk_config: json!({
-            "publishable_key": env::var("CLERK_PUBLISHABLE_KEY").expect("CLERK_PUBLISHABLE_KEY is not set in .env file"),
-            "app_name": env::var("CLERK_APP_NAME").expect("CLERK_APP_NAME is not set in .env file")
-        }),
     });
 
     HttpServer::new(move || {

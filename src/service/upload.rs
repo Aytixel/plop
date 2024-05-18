@@ -52,7 +52,6 @@ async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
                     &json!({
                         "width": 640,
                         "height": 360,
-                        "clerk": data.clerk_config,
                     }),
                 )
                 .unwrap(),

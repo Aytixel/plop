@@ -7,14 +7,5 @@ use crate::AppState;
 async fn get(data: Data<AppState<'_>>) -> impl Responder {
     HttpResponse::Ok()
         .insert_header(("Cache-Control", "no-store"))
-        .body(
-            data.handlebars
-                .render(
-                    "index",
-                    &json!({
-                        "clerk": data.clerk_config,
-                    }),
-                )
-                .unwrap(),
-        )
+        .body(data.handlebars.render("index", &json!({})).unwrap())
 }

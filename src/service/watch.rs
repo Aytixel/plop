@@ -107,7 +107,6 @@ pub mod uuid {
                                 "vues": video.vues,
                                 "width": 1280,
                                 "height": 720,
-                                "clerk": data.clerk_config,
                             }),
                         )
                         .unwrap(),
