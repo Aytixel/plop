@@ -1,5 +1,4 @@
-@import "palette.css";
-@import "font.css";
+@import "global.css";
 
 video-player {
     max-width: 640px;

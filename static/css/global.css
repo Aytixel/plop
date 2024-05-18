@@ -12,6 +12,8 @@
     padding: 0;
 
     color: inherit;
+
+    font-size: inherit;
 }
 
 body {
@@ -36,17 +38,30 @@ a {
     color: color-mix(in srgb, rgb(var(--color-primary)) 75%, rgb(var(--color-dark)));
 }
 
+img {
+    font-size: 0;
+}
+
 /*
     Input
 */
+.button,
 button,
-input {
+input,
+textarea {
     --bg-color: rgb(var(--color-dark) / .1);
     --hover-bg-color: rgb(var(--color-dark) / .25);
+    --padding: .5em;
+    --inner-size: 1.5em;
+    --outer-size: calc(var(--inner-size) + var(--padding) * 2);
 
-    padding: .5em 1em;
+    display: inline-block;
 
-    height: 3em;
+    padding: var(--padding) 1em;
+
+    min-width: var(--outer-size);
+    min-height: var(--outer-size);
+    height: var(--outer-size);
 
     border: none;
     border-radius: .5em;
@@ -54,9 +69,10 @@ input {
     appearance: none;
     outline: none;
 
-    line-height: 2em;
+    line-height: var(--inner-size);
 
-    font-weight: bold;
+    color: rgb(var(--color-dark));
+
     vertical-align: middle;
 
     background-color: var(--bg-color);
@@ -64,11 +80,11 @@ input {
     transition: .3s background-color, .3s color, .3s .15s box-shadow;
 }
 
-:is(button, input):hover {
+:is(.button, button, input, textarea):hover {
     background-color: var(--hover-bg-color);
 }
 
-:is(button, input):focus-visible {
+:is(.button, button, input, textarea):focus-visible {
     box-shadow: 0 0 0 .1em var(--hover-bg-color);
 
     background-color: var(--hover-bg-color);
@@ -76,34 +92,45 @@ input {
     transition-delay: 0s;
 }
 
-:is(button, input).rounded {
-    padding: .5em 1.5em;
+:is(.button, button, input, textarea).rounded {
+    padding: var(--padding) 1.5em;
 
-    border-radius: 1.5em;
+    border-radius: calc(var(--outer-size) / 2);
 }
 
-:is(button, input).inverted {
+:is(.button, button, input, textarea).inverted {
     --bg-color: #0000;
     --hover-bg-color: rgb(var(--color-dark) / .1);
-
-    font-weight: normal;
-
 }
 
-:is(button, input).important {
+:is(.button, button, input, textarea).important {
     --bg-color: rgb(var(--color-dark) / 1);
     --hover-bg-color: rgb(var(--color-dark) / 1);
 
     color: rgb(var(--color-light));
 }
 
-button svg {
-    height: 2em;
-    width: 2em;
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon {
+    padding: var(--padding);
+}
+
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]):has(svg) {
+    padding-left: var(--padding) !important;
+}
+
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]) svg {
+    display: block;
+
+    float: left;
+
+    height: var(--inner-size);
+    width: var(--inner-size);
 
     margin-right: .5em;
 
-    vertical-align: bottom;
+    padding: .1em;
+}
 
-    translate: -.5em 0;
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon svg {
+    margin: 0;
 }
