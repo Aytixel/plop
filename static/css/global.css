@@ -93,7 +93,7 @@ textarea {
 }
 
 :is(.button, button, input, textarea).rounded {
-    padding: var(--padding) 1.5em;
+    padding-inline: 1.5em;
 
     border-radius: calc(var(--outer-size) / 2);
 }
