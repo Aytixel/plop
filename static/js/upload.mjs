@@ -1,4 +1,5 @@
 import "/component/video-player/video-player.mjs"
+import encodeVideo from "./encoder.mjs"
 
 if ("mozCaptureStream" in HTMLMediaElement.prototype)
     HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
@@ -82,14 +83,6 @@ video_filepicker_element.addEventListener("input", () => {
         video_element.src = URL.createObjectURL(video_filepicker_element.files[0])
 })
 
-const encoder_selection_element = document.getElementById("encoder_selection")
-
-if ("AudioEncoder" in window) {
-    encoder_selection_element.children[0].selected = false
-    encoder_selection_element.children[1].disabled = false
-    encoder_selection_element.children[1].selected = true
-}
-
 const video_upload_form_element = document.getElementById("video_upload_form")
 let uploading_video = false
 
@@ -119,11 +112,10 @@ function getVideoEncodeOptionsList(width, height, framerate) {
         return encode_options
     }).filter((encode_options, index) => index == 0 || encode_options.resolution <= Math.min(width, height))
 }
-
 video_upload_form_element.addEventListener("submit", async e => {
     e.preventDefault()
 
-    if (uploading_video)
+    if (!("AudioEncoder" in window) || !("VideoEncoder" in window) || uploading_video)
         return;
 
     uploading_video = true
@@ -159,18 +151,7 @@ video_upload_form_element.addEventListener("submit", async e => {
         worker.reverse()
     }
 
-    let encode_video
-
-    switch (encoder_selection_element.value) {
-        case "high":
-            encode_video = (await import("/js/upload/high-quality-encoder.mjs")).default
-            break
-        default:
-            encode_video = (await import("/js/upload/low-quality-encoder.mjs")).default
-            break
-    }
-
-    await encode_video(video_element.src, video_encode_options_list, uploadVideoChunk)
+    await encodeVideo(video_element.src, video_encode_options_list, uploadVideoChunk)
 
     console.log("Upload finished : " + video_uuid)
 })
