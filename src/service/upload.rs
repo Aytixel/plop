@@ -49,10 +49,7 @@ async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
             data.handlebars
                 .render(
                     "upload",
-                    &json!({
-                        "width": 640,
-                        "height": 360,
-                    }),
+                    &json!({}),
                 )
                 .unwrap(),
         )

@@ -105,8 +105,6 @@ pub mod uuid {
                                 "bitrates": bitrates,
                                 "has_audio": video.has_audio,
                                 "vues": video.vues,
-                                "width": 1280,
-                                "height": 720,
                             }),
                         )
                         .unwrap(),
