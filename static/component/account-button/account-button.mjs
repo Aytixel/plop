@@ -33,14 +33,14 @@ class AccountButtonElement extends HTMLElement {
                     min-height: 0;
                     height: var(--size);
 
-                    padding: 0;
+                    padding: 0 !important;
 
                     border: none;
                     border-radius: calc(var(--size) / 2);
-
-                    cursor: pointer;
                 }
                 ${seletor} button img {
+                    padding: 0;
+
                     width: inherit;
                     height: inherit;
 

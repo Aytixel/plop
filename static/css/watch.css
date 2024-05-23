@@ -6,7 +6,7 @@
 
 */
 #main_container {
-    margin: 1rem auto;
+    margin: 0 auto;
 
     --main-width: calc(max(min(130vh, 100vw), 280px) - 2rem);
 
@@ -91,17 +91,9 @@ video-player {
 #video_info_show_more {
     margin-top: .25em;
 
-    appearance: none;
+    padding: 0;
 
-    border: none;
-    border-radius: 0;
-
-    background: none;
-
-    font-size: 1em;
     font-weight: bold;
 
-    cursor: pointer;
-
-    color: inherit;
+    background-color: #0000;
 }

@@ -39,7 +39,7 @@ a {
 }
 
 img {
-    font-size: 0;
+    color: #0000;
 }
 
 /*
@@ -50,7 +50,8 @@ button,
 input,
 textarea {
     --bg-color: rgb(var(--color-dark) / .1);
-    --hover-bg-color: rgb(var(--color-dark) / .25);
+    --hover-bg-color: rgb(var(--color-dark) / .2);
+    --focus-border-color: rgb(var(--color-dark) / .2);
     --padding: .5em;
     --inner-size: 1.5em;
     --outer-size: calc(var(--inner-size) + var(--padding) * 2);
@@ -77,19 +78,9 @@ textarea {
 
     background-color: var(--bg-color);
 
+    cursor: pointer;
+
     transition: .3s background-color, .3s color, .3s .15s box-shadow;
-}
-
-:is(.button, button, input, textarea):hover {
-    background-color: var(--hover-bg-color);
-}
-
-:is(.button, button, input, textarea):focus-visible {
-    box-shadow: 0 0 0 .1em var(--hover-bg-color);
-
-    background-color: var(--hover-bg-color);
-
-    transition-delay: 0s;
 }
 
 :is(.button, button, input, textarea).rounded {
@@ -106,19 +97,32 @@ textarea {
 :is(.button, button, input, textarea).important {
     --bg-color: rgb(var(--color-dark) / 1);
     --hover-bg-color: rgb(var(--color-dark) / 1);
+    --focus-border-color: rgb(var(--color-dark) / .3);
 
     color: rgb(var(--color-light));
+}
+
+:is(.button, button, input, textarea):hover {
+    background-color: var(--hover-bg-color);
+}
+
+:is(.button, button, input, textarea):focus-visible {
+    box-shadow: 0 0 0 .1em var(--focus-border-color);
+
+    background-color: var(--hover-bg-color);
+
+    transition-delay: 0s;
 }
 
 :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon {
     padding: var(--padding);
 }
 
-:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]):has(svg) {
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]):has(:is(svg, img)) {
     padding-left: var(--padding) !important;
 }
 
-:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]) svg {
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]) :is(svg, img) {
     display: block;
 
     float: left;
@@ -126,11 +130,11 @@ textarea {
     height: var(--inner-size);
     width: var(--inner-size);
 
-    margin-right: .5em;
+    margin-right: .75em;
 
     padding: .1em;
 }
 
-:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon svg {
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon :is(svg, img) {
     margin: 0;
 }
