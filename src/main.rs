@@ -138,6 +138,7 @@ async fn main() -> anyhow::Result<()> {
             .service(service::upload::put)
             .service(service::upload::uuid::resolution::post)
             .service(service::video::uuid::resolution::get)
+            .service(service::video::uuid::resolution::start_timestamp::end_timestamp::get)
             .service(service::watch::uuid::get)
             .service(
                 Files::new("/", "./static/")
