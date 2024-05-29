@@ -1,5 +1,11 @@
 import "/component/video-player/video-player.mjs"
+import "/component/video-preview/video-preview.mjs"
+import { formatVues } from "./utils/vues.mjs"
 import encodeVideo from "./encoder.mjs"
+
+TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
+
+const time_ago = new TimeAgo('fr')
 
 if ("mozCaptureStream" in HTMLMediaElement.prototype)
     HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
@@ -21,6 +27,7 @@ if ("captureStream" in HTMLMediaElement.prototype) {
     });
 }
 
+// video upload form
 const thumbnail_element = document.getElementById("thumbnail")
 const thumbnail_filepicker_element = document.getElementById("thumbnail_filepicker")
 
@@ -44,6 +51,8 @@ function encodeThumbnail(url) {
                 height = Math.round(480 / aspect_ratio)
             }
 
+            console.log(aspect_ratio, width, height)
+
             canvas.width = width
             canvas.height = height
             canvas_context.drawImage(image, 0, 0, width, height)
@@ -53,17 +62,13 @@ function encodeThumbnail(url) {
     })
 }
 
-thumbnail_filepicker_element.addEventListener("input", () => {
+thumbnail_filepicker_element.addEventListener("input", async () => {
     if (thumbnail_filepicker_element.files.length > 0)
-        thumbnail_element.src = URL.createObjectURL(thumbnail_filepicker_element.files[0])
+        thumbnail_element.src = await encodeThumbnail(URL.createObjectURL(thumbnail_filepicker_element.files[0]))
 })
 
 const video_element = document.querySelector("video-player").getPlayer({ ambient_light: false, shortcut_on_focus: true })
 const video_filepicker_element = document.getElementById("video_filepicker")
-
-const video_width_element = document.getElementById("video_width")
-const video_height_element = document.getElementById("video_height")
-const video_framerate_element = document.getElementById("video_framerate")
 
 let video_settings
 
@@ -72,10 +77,6 @@ video_element.addEventListener("loadedmetadata", () => {
     video_settings.width ??= video_element.videoWidth
     video_settings.height ??= video_element.videoHeight
     video_settings.frameRate ??= 30
-
-    video_width_element.textContent = video_settings.width
-    video_height_element.textContent = video_settings.height
-    video_framerate_element.textContent = video_settings.frameRate
 })
 
 video_filepicker_element.addEventListener("input", () => {
@@ -112,6 +113,7 @@ function getVideoEncodeOptionsList(width, height, framerate) {
         return encode_options
     }).filter((encode_options, index) => index == 0 || encode_options.resolution <= Math.min(width, height))
 }
+
 video_upload_form_element.addEventListener("submit", async e => {
     e.preventDefault()
 
@@ -127,7 +129,7 @@ video_upload_form_element.addEventListener("submit", async e => {
         framerate: video_settings.frameRate,
         duration: video_element.duration,
         resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution),
-        thumbnail: await encodeThumbnail(thumbnail_element.src),
+        thumbnail: thumbnail_element.src,
         has_audio: !!video_element.audioTracks.length
     };
 
@@ -155,3 +157,16 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     console.log("Upload finished : " + video_uuid)
 })
+
+// video list
+const video_list = document.getElementById("video_list")
+
+for (const video of video_list.children) {
+    const vues = video.getElementsByClassName("vues")[0]
+
+    vues.textContent = formatVues(+vues.textContent)
+
+    const date = video.getElementsByTagName("time")[0]
+
+    date.textContent = time_ago.format(new $mol_time_moment(date.dateTime).valueOf())
+}

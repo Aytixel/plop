@@ -42,6 +42,12 @@ img {
     color: #0000;
 }
 
+hr {
+    margin: 2em 1em;
+
+    border: solid .1em rgb(var(--color-dark) / .1);
+}
+
 /*
     Input
 */
@@ -49,9 +55,8 @@ img {
 button,
 input,
 textarea {
-    --bg-color: rgb(var(--color-dark) / .1);
-    --hover-bg-color: rgb(var(--color-dark) / .2);
-    --focus-border-color: rgb(var(--color-dark) / .2);
+    --bg-color: rgb(var(--color-dark) / .05);
+    --hover-bg-color: rgb(var(--color-dark) / .1);
     --padding: .5em;
     --inner-size: 1.5em;
     --outer-size: calc(var(--inner-size) + var(--padding) * 2);
@@ -64,7 +69,7 @@ textarea {
     min-height: var(--outer-size);
     height: var(--outer-size);
 
-    border: none;
+    border: solid .1em var(--hover-bg-color);
     border-radius: .5em;
 
     appearance: none;
@@ -74,13 +79,19 @@ textarea {
 
     color: rgb(var(--color-dark));
 
+    text-align: left;
+
     vertical-align: middle;
 
     background-color: var(--bg-color);
 
     cursor: pointer;
 
-    transition: .3s background-color, .3s color, .3s .15s box-shadow;
+    transition: .3s background-color, .3s color, .2s .2s border-color;
+}
+
+textarea {
+    height: auto;
 }
 
 :is(.button, button, input, textarea).rounded {
@@ -92,22 +103,27 @@ textarea {
 :is(.button, button, input, textarea).inverted {
     --bg-color: #0000;
     --hover-bg-color: rgb(var(--color-dark) / .1);
+
+    border-color: var(--bg-color);
 }
 
 :is(.button, button, input, textarea).important {
     --bg-color: rgb(var(--color-dark) / 1);
     --hover-bg-color: rgb(var(--color-dark) / 1);
-    --focus-border-color: rgb(var(--color-dark) / .3);
 
     color: rgb(var(--color-light));
 }
 
 :is(.button, button, input, textarea):hover {
+    border-color: var(--hover-bg-color);
+
     background-color: var(--hover-bg-color);
+
+    transition-delay: 0s;
 }
 
 :is(.button, button, input, textarea):focus-visible {
-    box-shadow: 0 0 0 .1em var(--focus-border-color);
+    border-color: var(--hover-bg-color);
 
     background-color: var(--hover-bg-color);
 

@@ -16,9 +16,9 @@ use fred::{
     interfaces::KeysInterface,
     types::{Expiration, RedisValue},
 };
-use sea_orm::{ActiveEnum, ActiveModelTrait, Set};
+use sea_orm::{ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::{
     fs::{create_dir_all, remove_file, OpenOptions},
     io::{AsyncSeekExt, AsyncWriteExt},
@@ -36,23 +36,72 @@ use crate::{
 use super::video::valid_resolution;
 
 #[get("/upload")]
-async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> impl Responder {
-    if get_authentication_data(&req, &data.clerk).await.is_none() {
-        return HttpResponse::TemporaryRedirect()
+async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
+    let Some(jwt) = get_authentication_data(&req, &data.clerk).await else {
+        return Ok(HttpResponse::TemporaryRedirect()
             .insert_header(("Location", "/"))
-            .finish();
-    }
+            .finish());
+    };
 
-    HttpResponse::Ok()
+    let videos: Vec<Value> = video::Entity::find()
+        .filter(video::Column::UserId.eq(jwt.sub))
+        .all(&data.db_connection)
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable to find a videos"))?
+        .into_iter()
+        .map(|video| {
+            json!({
+                "uuid": video.uuid,
+                "title": video.title,
+                "vues": video.vues,
+                "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
+                "duration": video.duration,
+                "resolutions": [
+                    {
+                        "resolution": 144,
+                        "state": video.state_144p.into_value().as_str(),
+                    },
+                    {
+                        "resolution": 240,
+                        "state": video.state_240p.into_value().as_str(),
+                    },
+                    {
+                        "resolution": 360,
+                        "state": video.state_360p.into_value().as_str(),
+                    },
+                    {
+                        "resolution": 480,
+                        "state": video.state_480p.into_value().as_str(),
+                    },
+                    {
+                        "resolution": 720,
+                        "state": video.state_720p.into_value().as_str(),
+                    },
+                    {
+                        "resolution": 1080,
+                        "state": video.state_1080p.into_value().as_str(),
+                    },
+                    {
+                        "resolution": 1440,
+                        "state": video.state_1440p.into_value().as_str(),
+                    },
+                ],
+            })
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok()
         .insert_header(("Cache-Control", "no-store"))
         .body(
             data.handlebars
                 .render(
                     "upload",
-                    &json!({}),
+                    &json!({
+                        "videos": videos
+                    }),
                 )
                 .unwrap(),
-        )
+        ))
 }
 
 fn valid_resolutions(resolutions: &HashSet<u16>) -> Result<(), ValidationError> {

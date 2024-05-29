@@ -1,3 +1,5 @@
+import { formatDuration } from "../../js/utils/duration.mjs"
+
 class VideoPlayer extends EventTarget {
     #video_player
     #canvas
@@ -128,8 +130,7 @@ class VideoPlayer extends EventTarget {
 
         let was_paused = this.paused
 
-
-        this.#duration.textContent = this.#durationToString(this.#progress_slider.max)
+        this.#duration.textContent = formatDuration(this.#progress_slider.max)
 
         this.#progress_slider.addEventListener("input", () => this.currentTime = this.#progress_slider.value)
         this.#progress_slider.addEventListener("pointerdown", () => {
@@ -150,7 +151,7 @@ class VideoPlayer extends EventTarget {
 
         // listen on video event and update ui
         const updatePlayButton = () => this.#video_player.dataset.paused = this.paused
-        const updateDuration = () => this.#duration.textContent = this.#durationToString(this.#progress_slider.max = this.duration)
+        const updateDuration = () => this.#duration.textContent = formatDuration(this.#progress_slider.max = this.duration)
 
         this.#video.addEventListener("play", updatePlayButton)
         this.#video.addEventListener("pause", updatePlayButton)
@@ -388,7 +389,7 @@ class VideoPlayer extends EventTarget {
         if (this.uuid !== undefined) localStorage.setItem(`video-progress:${this.uuid}`, this.currentTime)
 
         this.ended
-        this.#progress.textContent = this.#durationToString(this.#progress_slider.value = this.currentTime)
+        this.#progress.textContent = formatDuration(this.#progress_slider.value = this.currentTime)
         this.#progress_slider.dispatchEvent(new Event("update"))
         this.#updateCanvas()
     }
@@ -414,12 +415,6 @@ class VideoPlayer extends EventTarget {
         element.addEventListener("update", update)
 
         update()
-    }
-
-    #durationToString(duration) {
-        const string = `${Math.floor(duration / 60 % 60)}:${(Math.round(duration) % 60).toString().padStart(2, 0)}`
-
-        return duration >= 3600 ? Math.floor(duration / 3600) + ":" + string.padStart(5, 0) : string
     }
 
     #updateCanvas() {

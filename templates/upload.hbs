@@ -13,40 +13,59 @@
     <link rel="manifest" href="/site.webmanifest">
     <title>Mettre ligne une vidéo</title>
     <link rel="preload stylesheet" as="style" type="text/css" href="/css/upload.css">
+    <script src="https://unpkg.com/mol_time_all@1.1/web.js"></script>
+    <script src="https://unpkg.com/javascript-time-ago@2.5/bundle/javascript-time-ago.js"></script>
     {{clerk-script}}
     <script src="/js/upload.mjs" type="module"></script>
 </head>
 
 <body>
     {{> nav-bar}}
-    <form id="video_upload_form">
-        <div>
-            <input type="text" minlength="1" maxlength="100" name="title" placeholder="Titre" required>
-            <textarea maxlength="5000" name="description" placeholder="Description"></textarea>
-            <input type="text" maxlength="500" name="tags" placeholder="Tags">
-        </div>
-        <div id="thumbnail_container">
-            <img src="" alt="Miniature de la vidéo" width="640" height="360" id="thumbnail">
-            <label for="thumbnail_filepicker">
-                Choisir une miniature
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker"
-                    required>
-            </label>
-        </div>
-        <video-player width="640" height="360"></video-player>
-        <div>
-            <label for="video_filepicker">
-                Choisir une vidéo
-                <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker" required>
-            </label>
-            <span>
-                <span id="video_width">0</span>x<span id="video_height">0</span> <span id="video_framerate">0</span>fps
-            </span>
-        </div>
-        <div>
-            <input type="submit" value="Transcoder et télécharger la vidéo">
-        </div>
-    </form>
+    <header>
+        <form id="video_upload_form">
+            <div id="video_upload_data">
+                <video-player width="426" height="240"></video-player>
+                <img src="" alt="Miniature de la vidéo" width="426" height="240" id="thumbnail">
+            </div>
+            <div id="video_upload_inputs">
+                <input type="text" minlength="1" maxlength="100" name="title" placeholder="Titre" required>
+                <label class="button" for="video_filepicker">
+                    Choisir une vidéo
+                    <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker" required>
+                </label>
+                <input type="text" maxlength="500" name="tags" placeholder="Tags séparer par des virgules">
+                <label class="button" for="thumbnail_filepicker">
+                    Choisir une miniature
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker"
+                        required>
+                </label>
+                <textarea maxlength="5000" rows="2" name="description" placeholder="Description"></textarea>
+                <input type="submit" value="Transcoder et télécharger la vidéo">
+            </div>
+        </form>
+    </header>
+    <hr>
+    <main>
+        <ul id="video_list">
+            {{#each videos as |video|}}
+            <li class="button border" tabindex="0">
+                <video-preview data-uuid="{{video.uuid}}" data-duration="{{video.duration}}"></video-preview>
+                <div class="top">
+                    <span class="title">{{video.title}}</span><span class="vues">{{video.vues}}</span><time
+                        datetime="{{video.timestamp}}"></time>
+                </div>
+                <div class="bottom">
+                    {{#each resolutions as |resolution_|}}
+                    {{#with resolution_}}
+                    <span>{{resolution}}p {{#if (eq state "available")}}✅{{/if}}{{#if (eq state
+                        "unavailable")}}🚫{{/if}}{{#if (eq state "uploading")}}⚠️{{/if}}</span>
+                    {{/with}}
+                    {{/each}}
+                </div>
+            </li>
+            {{/each}}
+        </ul>
+    </main>
 </body>
 
 </html>

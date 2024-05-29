@@ -1,4 +1,5 @@
 import "/component/video-player/video-player.mjs"
+import { formatVues } from "./utils/vues.mjs"
 import { VideoSource } from "./video-source.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
@@ -51,16 +52,8 @@ class VideoInfo {
     }
 
     set vues(vues) {
-        if (this.#info.vues != vues && typeof vues === "number") {
-            if (vues >= 0 && vues < 1000)
-                this.#vues.textContent = vues + (vues > 1 ? " vues" : " vue")
-            else if (vues < 1000000)
-                this.#vues.textContent = (Math.round(vues / 100) / 10) + " k vues"
-            else if (vues < 1000000000)
-                this.#vues.textContent = (Math.round(vues / 100000) / 10) + " M de vues"
-            else
-                this.#vues.textContent = (Math.round(vues / 100000000) / 10) + " Md de vues"
-
+        if (this.#info.vues != vues) {
+            this.#vues.textContent = formatVues(vues) || this.#vues.textContent
             this.#info.vues = vues
         }
     }
