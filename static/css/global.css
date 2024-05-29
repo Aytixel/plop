@@ -108,7 +108,7 @@ textarea {
 }
 
 :is(.button, button, input, textarea).important {
-    --bg-color: rgb(var(--color-dark) / 1);
+    --bg-color: rgb(var(--color-dark) / .95);
     --hover-bg-color: rgb(var(--color-dark) / 1);
 
     color: rgb(var(--color-light));
