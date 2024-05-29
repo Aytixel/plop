@@ -55,9 +55,6 @@
 }
 
 #video_player video {
-    max-width: inherit;
-    max-height: inherit;
-
     border-radius: .5em;
 
     background-color: #0000;

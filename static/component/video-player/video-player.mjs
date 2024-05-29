@@ -520,6 +520,19 @@ class VideoPlayerElement extends HTMLElement {
 
         shadow.children[0].style.display = ""
         shadow.append(style)
+
+        const video = shadow.querySelector("video")
+        const updateSize = () => {
+            requestAnimationFrame(() => {
+                video.style.maxWidth = this.clientWidth + "px"
+                video.style.maxHeight = this.clientHeight + "px"
+
+                if (!this.clientHeight) updateSize()
+            })
+        }
+
+        updateSize()
+        window.addEventListener("resize", updateSize, { passive: true })
     }
 }
 
