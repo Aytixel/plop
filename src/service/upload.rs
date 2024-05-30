@@ -16,7 +16,9 @@ use fred::{
     interfaces::KeysInterface,
     types::{Expiration, RedisValue},
 };
-use sea_orm::{ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::{
@@ -45,6 +47,7 @@ async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<im
 
     let videos: Vec<Value> = video::Entity::find()
         .filter(video::Column::UserId.eq(jwt.sub))
+        .order_by_desc(video::Column::Timestamp)
         .all(&data.db_connection)
         .await
         .map_err(|_| ErrorInternalServerError("Unable to find a videos"))?
