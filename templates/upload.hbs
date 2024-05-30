@@ -28,19 +28,19 @@
                 <img src="" alt="Miniature de la vidéo" width="426" height="240" id="thumbnail">
             </div>
             <div id="video_upload_inputs">
-                <input type="text" minlength="1" maxlength="100" name="title" placeholder="Titre" required>
                 <label class="button" for="video_filepicker">
                     Choisir une vidéo
                     <input type="file" accept="video/ogg,video/webm,video/mp4" id="video_filepicker" required>
                 </label>
-                <input type="text" maxlength="500" name="tags" placeholder="Tags séparer par des virgules">
                 <label class="button" for="thumbnail_filepicker">
                     Choisir une miniature
                     <input type="file" accept="image/png,image/jpeg,image/webp,image/avif" id="thumbnail_filepicker"
                         required>
                 </label>
+                <input type="text" minlength="1" maxlength="100" name="title" placeholder="Titre" required>
+                <input type="text" maxlength="500" name="tags" placeholder="Tags séparer par des virgules">
                 <textarea maxlength="5000" rows="2" name="description" placeholder="Description"></textarea>
-                <input type="submit" value="Transcoder et télécharger la vidéo">
+                <input class="important" type="submit" value="Transcoder et télécharger la vidéo">
             </div>
         </form>
     </header>
