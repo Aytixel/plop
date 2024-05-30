@@ -17,6 +17,7 @@ class VideoPreviewElement extends HTMLElement {
 
                 aspect-ratio: 16/9;
 
+                border: solid .1em rgb(var(--color-dark) / .1);
                 border-radius: .5em;
 
                 overflow: hidden;
