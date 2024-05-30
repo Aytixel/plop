@@ -104,7 +104,7 @@ class VideoPreviewElement extends HTMLElement {
                 timeout = null
             }
         })
-        this.addEventListener("click", () => window.location = `/watch/${uuid}?t=${video.currentTime}`, { capture: true })
+        this.addEventListener("click", () => window.location = `/watch/${uuid}` + (video.paused ? "" : `?t=${video.currentTime}`), { capture: true })
     }
 }
 
