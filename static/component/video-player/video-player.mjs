@@ -530,9 +530,10 @@ class VideoPlayerElement extends HTMLElement {
                 if (!this.clientHeight) updateSize()
             })
         }
+        const resize_observer = new ResizeObserver(updateSize)
 
         updateSize()
-        window.addEventListener("resize", updateSize, { passive: true })
+        resize_observer.observe(this)
     }
 }
 
