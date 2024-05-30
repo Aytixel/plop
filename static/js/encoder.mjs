@@ -164,16 +164,24 @@ function encodeVideo(url, encode_options_list, callback) {
             }
 
             // start video encoding
+            const canvas = document.createElement("canvas")
+            const canvas_context = canvas.getContext("2d")
             let frame_count = 0
             const duration = Math.round(video.duration * 1_000_000)
             const high_encode_options = encode_options_list[encode_options_list.length - 1]
+
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
 
             async function encodeFrame() {
                 console.log(`Time : ${video.currentTime}s`)
 
                 frame_count++
 
-                const video_frame = new VideoFrame(video, {
+                canvas_context.clearRect(0, 0, canvas.width, canvas.height)
+                canvas_context.drawImage(video, 0, 0)
+
+                const video_frame = new VideoFrame(canvas, {
                     timestamp: high_encode_options.timestamp,
                     duration
                 })

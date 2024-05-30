@@ -51,8 +51,6 @@ function encodeThumbnail(url) {
                 height = Math.round(480 / aspect_ratio)
             }
 
-            console.log(aspect_ratio, width, height)
-
             canvas.width = width
             canvas.height = height
             canvas_context.drawImage(image, 0, 0, width, height)
