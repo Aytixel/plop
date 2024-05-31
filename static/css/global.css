@@ -14,6 +14,8 @@
     color: inherit;
 
     font-size: inherit;
+
+    text-wrap: pretty;
 }
 
 body {
@@ -46,6 +48,21 @@ hr {
     margin: 2em 1em;
 
     border: solid .1em rgb(var(--color-dark) / .1);
+}
+
+p {
+    margin: 1em;
+
+    padding: .5em 1em;
+}
+
+p.important {
+    border: solid .1em rgb(var(--color-dark) / 1);
+    border-radius: .5em;
+
+    color: rgb(var(--color-light));
+
+    background-color: rgb(var(--color-dark) / .95);
 }
 
 /*

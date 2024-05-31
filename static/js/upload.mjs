@@ -27,7 +27,15 @@ if ("captureStream" in HTMLMediaElement.prototype) {
     });
 }
 
+function isCompatible() {
+    return "AudioEncoder" in window && "VideoEncoder" in window
+}
+
 // video upload form
+const header_element = document.getElementsByTagName("header")[0]
+
+header_element.children[1].hidden = !(header_element.children[0].hidden = isCompatible())
+
 const thumbnail_element = document.getElementById("thumbnail")
 const thumbnail_filepicker_element = document.getElementById("thumbnail_filepicker")
 
@@ -115,7 +123,7 @@ function getVideoEncodeOptionsList(width, height, framerate) {
 video_upload_form_element.addEventListener("submit", async e => {
     e.preventDefault()
 
-    if (!("AudioEncoder" in window) || !("VideoEncoder" in window) || uploading_video)
+    if (!isCompatible() || uploading_video)
         return;
 
     uploading_video = true
@@ -157,14 +165,14 @@ video_upload_form_element.addEventListener("submit", async e => {
 })
 
 // video list
-const video_list = document.getElementById("video_list")
+const video_list_element = document.getElementById("video_list")
 
-for (const video of video_list.children) {
-    const vues = video.getElementsByClassName("vues")[0]
+for (const video of video_list_element.children) {
+    const vues_element = video.getElementsByClassName("vues")[0]
 
-    vues.textContent = formatVues(+vues.textContent)
+    vues_element.textContent = formatVues(+vues_element.textContent)
 
-    const date = video.getElementsByTagName("time")[0]
+    const date_element = video.getElementsByTagName("time")[0]
 
-    date.textContent = time_ago.format(new $mol_time_moment(date.dateTime).valueOf())
+    date_element.textContent = time_ago.format(new $mol_time_moment(date_element.dateTime).valueOf())
 }
