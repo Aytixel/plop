@@ -13,6 +13,8 @@ ligne la vidéo.
 
 ## Commandes
 
+Lancer la stack de développement : `docker compose up`
+
 Génération automatique des entités pour SeaORM :
 `sea-orm-cli generate entity -o src/entity/`
 

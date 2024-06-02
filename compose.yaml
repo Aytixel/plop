@@ -1,0 +1,59 @@
+services:
+  meilli_search:
+    image: getmeili/meilisearch
+    restart: unless-stopped
+    ports:
+      - 7700:7700
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: meilli_search_root
+    volumes:
+      - meilli_search_data:/meili_data
+
+  redis:
+    image: redis
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    command: redis-server
+      --save 60 1
+      --loglevel warning
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: root
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    volumes:
+      - ./postgres.sql:/docker-entrypoint-initdb.d/setup.sql
+      - postgres_data:/var/lib/postgresql/data
+
+  gorse:
+    image: zhenghaoz/gorse-in-one
+    restart: unless-stopped
+    ports:
+      - 8086:8086
+      - 8088:8088
+    environment:
+      GORSE_CACHE_STORE: redis://redis:6379
+      GORSE_DATA_STORE: postgres://root:root@postgres:5432/root?sslmode=disable
+    command: >
+      -c /etc/gorse/config.toml 
+      --log-path /var/log/gorse/master.log 
+      --cache-path /var/lib/gorse/master_cache.data
+    volumes:
+      - ./gorse.toml:/etc/gorse/config.toml
+    depends_on:
+      - redis
+      - postgres
+
+volumes:
+  redis_data:
+  postgres_data:
+  meilli_search_data:
