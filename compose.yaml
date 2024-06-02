@@ -42,7 +42,7 @@ services:
       - 8088:8088
     environment:
       GORSE_CACHE_STORE: redis://redis:6379
-      GORSE_DATA_STORE: postgres://root:root@postgres:5432/root?sslmode=disable
+      GORSE_DATA_STORE: postgres://root:root@postgres:5432/gorse?sslmode=disable
     command: >
       -c /etc/gorse/config.toml 
       --log-path /var/log/gorse/master.log 

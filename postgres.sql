@@ -1,3 +1,5 @@
+CREATE DATABASE gorse;
+
 CREATE TYPE video_upload_state AS ENUM ('unavailable', 'available', 'uploading');
 
 CREATE TABLE video (
