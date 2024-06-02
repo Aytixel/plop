@@ -20,9 +20,11 @@ use fred::{
     prelude::{ClientLike, RedisClient},
     types::{PerformanceConfig, ReconnectPolicy, RedisConfig},
 };
+use gorse_rs::Gorse;
 use handlebars::{
     Context, DirectorySourceOptions, Handlebars, Helper, HelperResult, Output, RenderContext,
 };
+use meilisearch_sdk::client::Client;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 use sea_orm::{Database, DatabaseConnection};
@@ -43,6 +45,8 @@ where
 pub struct AppState<'a> {
     db_connection: DatabaseConnection,
     redis_client: RedisClient,
+    gorse_client: Gorse,
+    meillisearch_client: Client,
     handlebars: Handlebars<'a>,
     clerk: Clerk,
 }
@@ -58,6 +62,19 @@ async fn main() -> anyhow::Result<()> {
 
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL is not set in .env file");
+    let gorse_url = {
+        let url = env::var("GORSE_URL").expect("GORSE_URL is not set in .env file");
+
+        match url.ends_with("/") {
+            true => url,
+            false => url + "/",
+        }
+    };
+    let gorse_api_key = env::var("GORSE_API_KEY").expect("GORSE_API_KEY is not set in .env file");
+    let meillisearch_url =
+        env::var("MEILLISEARCH_URL").expect("MEILLISEARCH_URL is not set in .env file");
+    let meillisearch_api_key =
+        env::var("MEILLISEARCH_API_KEY").expect("GORSE_API_KEY is not set in .env file");
 
     let db_connection = Database::connect(db_url).await?;
     let redis_config = RedisConfig::from_url(&redis_url)?;
@@ -72,6 +89,9 @@ async fn main() -> anyhow::Result<()> {
 
     redis_client.connect();
     redis_client.wait_for_connect().await?;
+
+    let gorse_client = Gorse::new(gorse_url, gorse_api_key);
+    let meillisearch_client = Client::new(meillisearch_url, Some(meillisearch_api_key))?;
 
     let mut handlebars = Handlebars::new();
 
@@ -117,6 +137,8 @@ async fn main() -> anyhow::Result<()> {
     let state = Data::new(AppState {
         db_connection,
         redis_client,
+        gorse_client,
+        meillisearch_client,
         handlebars,
         clerk,
     });

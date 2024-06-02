@@ -31,6 +31,8 @@ sea-orm = { version = "0.12", features = [
     "with-uuid",
 ] }
 fred = "9"
+gorse_rs = "0.4.1"
+meilisearch-sdk = "0.26.1"
 anyhow = "1"
 clerk-rs = "0.2"
 actix-analytics = "1.1"
