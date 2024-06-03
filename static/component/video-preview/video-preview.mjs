@@ -29,7 +29,9 @@ class VideoPreviewElement extends HTMLElement {
                 grid-column: 1;
                 grid-row: 1;
 
+                min-width: 0;
                 width: 100%;
+                min-height: 0;
                 height: 100%;
             }
 
