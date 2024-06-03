@@ -521,11 +521,17 @@ class VideoPlayerElement extends HTMLElement {
         shadow.children[0].style.display = ""
         shadow.append(style)
 
+        const player = shadow.querySelector("#video_player")
         const video = shadow.querySelector("video")
         const updateSize = () => {
             requestAnimationFrame(() => {
-                video.style.maxWidth = this.clientWidth + "px"
-                video.style.maxHeight = this.clientHeight + "px"
+                if (player.dataset.fullscreen == "false") {
+                    video.style.maxWidth = this.clientWidth + "px"
+                    video.style.maxHeight = this.clientHeight + "px"
+                } else {
+                    video.style.maxWidth = window.innerWidth + "px"
+                    video.style.maxHeight = window.innerHeight + "px"
+                }
 
                 if (!this.clientHeight) updateSize()
             })
