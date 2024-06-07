@@ -21,6 +21,7 @@ class VideoPlayer extends EventTarget {
         uuid: undefined,
         title: "",
         ambient_light: true,
+        duration: -1,
     }
 
     constructor(parent, options = {}) {
@@ -47,7 +48,7 @@ class VideoPlayer extends EventTarget {
         if (typeof options.ambient_light === "boolean") this.#metadata.ambient_light = options.ambient_light
 
         const shortcut_on_focus = (typeof options.shortcut_on_focus === "boolean") ? options.shortcut_on_focus : false
-        const duration = (typeof options.duration === "number") ? options.duration : -1
+        const duration = this.#metadata.duration = (typeof options.duration === "number") ? options.duration : -1
         let start_time = (typeof options.start_time === "number") ? options.start_time : parseFloat(new URLSearchParams(location.search).get("t"))
 
         // setup media session
@@ -283,7 +284,7 @@ class VideoPlayer extends EventTarget {
     }
 
     get duration() {
-        return this.#video.duration
+        return (this.#metadata.duration == -1) ? this.#video.duration : this.#metadata.duration
     }
 
     set currentTime(currentTime) {
@@ -296,7 +297,7 @@ class VideoPlayer extends EventTarget {
     }
 
     get ended() {
-        return this.#video_player.dataset.ended = Math.round(this.currentTime * 100) >= Math.round(this.duration * 100) - 3
+        return this.#video_player.dataset.ended = Math.round(this.currentTime * 100) >= Math.round(this.duration * 100) - 10
     }
 
     set paused(paused) {
