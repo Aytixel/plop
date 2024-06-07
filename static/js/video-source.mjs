@@ -53,7 +53,7 @@ export class VideoSource extends MediaSource {
 
             this.#source_buffer.onupdateend = appendSegment
             this.start()
-        })
+        }, { once: true })
     }
 
     get hasAudio() {
@@ -91,7 +91,7 @@ export class VideoSource extends MediaSource {
     }
 
     get #continue() {
-        return this.#video.currentTime > (this.bufferedEnd - 5) && this.bufferedEnd < this.duration
+        return this.#video.currentTime > (this.bufferedEnd - 5) && this.bufferedEnd < (this.#video_metadata.duration - 1 / this.#video_metadata.framerate)
     }
 
     start() {
@@ -144,7 +144,7 @@ export class VideoSource extends MediaSource {
 
     async #fetch() {
         const start = Math.round(this.#start * 1_000_000_000)
-        const end = Math.round(Math.min(this.#start + this.#length, this.duration) * 1_000_000_000)
+        const end = Math.round(Math.min(this.#start + this.#length, this.#video_metadata.duration) * 1_000_000_000)
 
         if (start == end)
             throw "Request rejected : length of zero"
@@ -168,14 +168,12 @@ export class VideoSource extends MediaSource {
         const content_range_split = response.headers.get("X-Content-Range").split("/")
         const [range_start, range_end] = content_range_split[0].split("-").map(value => parseInt(value))
 
-        this.duration = Math.min(parseInt(content_range_split[1]) / 1_000_000_000, this.duration)
-
         return {
             response,
             abort_controller,
             request_latency,
             range_start: Math.max(range_start / 1_000_000_000, 0),
-            range_end: Math.min(range_end / 1_000_000_000, this.duration)
+            range_end: Math.min(range_end / 1_000_000_000, this.#video_metadata.duration)
         }
     }
 
@@ -208,8 +206,8 @@ export class VideoSource extends MediaSource {
             this.#start = range_end
 
             if (this.#continue) {
-                this.#length = Math.round(speed / this.length * this.duration)
-                this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size) + this.#start, this.duration) - this.#start)
+                this.#length = Math.round(speed / this.length * this.#video_metadata.duration)
+                this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size) + this.#start, this.#video_metadata.duration) - this.#start)
 
                 if (this.#length > 0)
                     this.#nextSegment()
