@@ -462,42 +462,20 @@ pub mod uuid {
                             timestamp
                         }
                         Ok(Err(_)) | Err(_) => {
-                            let mut frame = Frame::default();
-                            let mut last_frame_timestamp = 0;
-                            let mut seek_length = 18_000_000_000_000i64;
-                            let mut seek_timestamp = end_timestamp;
-                            let mut found_end = false;
+                            let video = video::Entity::find_by_id(params.uuid)
+                                .one(&data.db_connection)
+                                .await
+                                .map_err(|_| {
+                                    ErrorInternalServerError(
+                                        "Unable to find a video with this resolution",
+                                    )
+                                })?
+                                .ok_or_else(|| {
+                                    ErrorNotFound("Unable to find a video with this resolution")
+                                })?;
 
-                            loop {
-                                seek_timestamp = seek_timestamp.saturating_add_signed(seek_length);
-                                file.seek(seek_timestamp / timescale).unwrap();
-
-                                if let Ok(true) = file.next_frame(&mut frame) {
-                                    if found_end {
-                                        seek_length = seek_length.abs() / 2;
-                                    } else {
-                                        seek_length = seek_length.abs();
-                                    }
-                                } else {
-                                    found_end = true;
-                                    seek_length = -(seek_length / 2).abs();
-
-                                    if seek_length.abs() <= 500_000_000 {
-                                        seek_timestamp =
-                                            seek_timestamp.saturating_add_signed(seek_length * 2);
-                                        break;
-                                    }
-                                }
-                            }
-
-                            file.seek(seek_timestamp / timescale).unwrap();
-
-                            while let Ok(true) = file.next_frame(&mut frame) {
-                                last_frame_timestamp =
-                                    last_frame_timestamp.max(frame.timestamp * timescale);
-                            }
-
-                            last_frame_timestamp = last_frame_timestamp.max(end_timestamp);
+                            let last_frame_timestamp =
+                                (video.duration.to_owned() * 1_000_000_000.0) as u64;
 
                             data.redis_client
                                 .set::<RedisValue, _, _>(
