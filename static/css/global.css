@@ -30,6 +30,10 @@ body {
     }
 }
 
+[hidden] {
+    display: none !important;
+}
+
 footer {
     height: 5em;
 }

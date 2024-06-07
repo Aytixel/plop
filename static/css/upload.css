@@ -55,6 +55,30 @@
     grid-template-rows: repeat(6, auto);
 }
 
+#video_upload_progress {
+    display: flex;
+    gap: .5em;
+    flex-direction: column;
+
+    margin: auto;
+    margin-top: 2em;
+
+    max-width: 60em;
+}
+
+#video_upload_progress label {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+}
+
+#video_upload_progress span {
+    flex-shrink: 0;
+}
+
+#video_upload_progress progress {
+    width: 100%;
+}
 
 @media (min-width: 640px) {
     #video_upload_inputs {

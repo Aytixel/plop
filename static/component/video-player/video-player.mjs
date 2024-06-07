@@ -357,20 +357,16 @@ class VideoPlayer extends EventTarget {
         return this.#video.src
     }
 
-    get videoTracks() {
-        return this.#video.videoTracks
-    }
-
-    get audioTracks() {
-        return this.#video.audioTracks
-    }
-
     get videoWidth() {
         return this.#video.videoWidth
     }
 
     get videoHeight() {
         return this.#video.videoHeight
+    }
+
+    captureStream() {
+        return this.#video.captureStream()
     }
 
     play() {

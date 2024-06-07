@@ -1,31 +1,11 @@
 import "/component/video-player/video-player.mjs"
 import "/component/video-preview/video-preview.mjs"
 import { formatVues } from "./utils/vues.mjs"
-import encodeVideo from "./encoder.mjs"
+import { Encoder } from "./encoder.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
 
 const time_ago = new TimeAgo('fr')
-
-if ("mozCaptureStream" in HTMLMediaElement.prototype)
-    HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
-
-if ("captureStream" in HTMLMediaElement.prototype) {
-    Object.defineProperties(HTMLMediaElement.prototype, {
-        audioTracks: {
-            get: function () {
-                return this.captureStream().getAudioTracks()
-            },
-            enumerable: true
-        },
-        videoTracks: {
-            get: function () {
-                return this.captureStream().getVideoTracks()
-            },
-            enumerable: true
-        }
-    });
-}
 
 function isCompatible() {
     return "AudioEncoder" in window && "VideoEncoder" in window
@@ -76,15 +56,6 @@ thumbnail_filepicker_element.addEventListener("input", async () => {
 const video_element = document.querySelector("video-player").getPlayer({ ambient_light: false, shortcut_on_focus: true })
 const video_filepicker_element = document.getElementById("video_filepicker")
 
-let video_settings
-
-video_element.addEventListener("loadedmetadata", () => {
-    video_settings = video_element.videoTracks[0].getSettings()
-    video_settings.width ??= video_element.videoWidth
-    video_settings.height ??= video_element.videoHeight
-    video_settings.frameRate ??= 30
-})
-
 video_filepicker_element.addEventListener("input", () => {
     if (video_filepicker_element.files.length > 0)
         video_element.src = URL.createObjectURL(video_filepicker_element.files[0])
@@ -92,33 +63,6 @@ video_filepicker_element.addEventListener("input", () => {
 
 const video_upload_form_element = document.getElementById("video_upload_form")
 let uploading_video = false
-
-function getVideoEncodeOptionsList(width, height, framerate) {
-    const aspect_ratio = width / height
-
-    return [
-        { resolution: 144, framerate: 24 },
-        { resolution: 240, framerate: 24 },
-        { resolution: 360, framerate: 30 },
-        { resolution: 480, framerate: 30 },
-        { resolution: 720, framerate: 60 },
-        { resolution: 1080, framerate: 60 },
-        { resolution: 1440, framerate: 60 },
-    ].map(encode_options => {
-        if (framerate < encode_options.framerate)
-            encode_options.framerate = framerate
-
-        if (aspect_ratio > 1) {
-            encode_options.width = Math.round(encode_options.resolution * aspect_ratio)
-            encode_options.height = encode_options.resolution
-        } else {
-            encode_options.width = encode_options.resolution
-            encode_options.height = Math.round(encode_options.resolution / aspect_ratio)
-        }
-
-        return encode_options
-    }).filter((encode_options, index) => index == 0 || encode_options.resolution <= Math.min(width, height))
-}
 
 video_upload_form_element.addEventListener("submit", async e => {
     e.preventDefault()
@@ -128,16 +72,17 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     uploading_video = true
 
-    const video_encode_options_list = getVideoEncodeOptionsList(video_settings.width, video_settings.height, video_settings.frameRate)
+    const encoder = await new Encoder().loadVideo(video_element.src)
+    const video_encode_options_list = await encoder.getVideoEncodeOptionsList()
     const form_data = new FormData(video_upload_form_element)
     const params = {
         title: form_data.get("title"),
-        framerate: video_settings.frameRate,
+        framerate: video_encode_options_list[video_encode_options_list.length - 1].framerate,
         duration: video_element.duration,
         resolutions: video_encode_options_list.map(video_encode_options => video_encode_options.resolution),
         thumbnail: thumbnail_element.src,
-        has_audio: !!video_element.audioTracks.length
-    };
+        has_audio: !!video_element.captureStream().getAudioTracks().length
+    }
 
     if (form_data.get("description").length)
         params.description = form_data.get("description")
@@ -147,21 +92,59 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     const video_uuid = await (await fetch("/upload", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
     const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
+    const progress_elements = {
+        video: document.getElementById("video_progress"),
+        audio: document.getElementById("audio_progress"),
+    }
+    const video_upload_progress = document.getElementById("video_upload_progress")
 
-    async function uploadVideoChunk(chunk) {
-        chunk.video_uuid = video_uuid
+    encoder.addEventListener("encodingdata", e => {
+        const chunk = {
+            resolution: e.resolution,
+            position: e.position,
+            data: e.data,
+            video_uuid
+        }
 
-        if (chunk.data)
-            worker[0].postMessage(chunk, [chunk.data])
-        else
-            worker[0].postMessage(chunk)
-
+        worker[0].postMessage(chunk, [chunk.data])
         worker.reverse()
+    })
+    encoder.addEventListener("encodingended", e => {
+        setTimeout(() => {
+            const chunk = {
+                resolution: e.resolution,
+                video_uuid
+            }
+
+            worker[0].postMessage(chunk)
+            worker.reverse()
+        }, 200)
+    })
+    encoder.addEventListener("encodingprogress", e => {
+        const progress_element = progress_elements[e.type]
+
+        video_upload_progress.hidden = false
+        progress_element.parentElement.hidden = false
+        progress_element.value = Math.round(e.encoding * 1_000)
+        progress_element.max = Math.round(e.duration * 1_000)
+    })
+    encoder.addEventListener("encodingended", console.log)
+
+    await encoder.encodeVideo(await encoder.getVideoEncodeOptionsList())
+
+    video_upload_progress.hidden = true
+
+    for (const key in progress_elements) {
+        const progress_element = progress_elements[key]
+
+        progress_element.parentElement.hidden = true
+        progress_element.value = 0
+        progress_element.max = 1
     }
 
-    await encodeVideo(video_element.src, video_encode_options_list, uploadVideoChunk)
-
     console.log("Upload finished : " + video_uuid)
+
+    uploading_video = false
 })
 
 // video list

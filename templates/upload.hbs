@@ -22,7 +22,7 @@
 <body>
     {{> nav-bar}}
     <header>
-        <p class="important" hidden="true">
+        <p class="important" hidden="">
             Votre navigateur est incompatible avec le système d'encodage.
             <br>
             Essayer un autre navigateur tel quel <strong>Google Chrome, Opera ou Edge.</strong>
@@ -46,6 +46,20 @@
                 <input type="text" maxlength="500" name="tags" placeholder="Tags séparer par des virgules">
                 <textarea maxlength="5000" rows="2" name="description" placeholder="Description"></textarea>
                 <input class="important" type="submit" value="Transcoder et télécharger la vidéo">
+            </div>
+            <div id="video_upload_progress" hidden="">
+                <label class="button" for="video_progress" hidden="">
+                    <span>Encodage vidéo</span>
+                    <progress id="video_progress" value="0" max="1"></progress>
+                </label>
+                <label class="button" for="audio_progress" hidden="">
+                    <span>Encodage audio</span>
+                    <progress id="audio_progress" value="0" max="1"></progress>
+                </label>
+                <label class="button" for="upload_progress">
+                    <span>Téléchargement</span>
+                    <progress id="upload_progress"></progress>
+                </label>
             </div>
         </form>
     </header>
