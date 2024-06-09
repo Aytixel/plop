@@ -1,4 +1,4 @@
-use std::{fs::File, io::Cursor, rc::Rc};
+use std::{fs::File, io::Cursor};
 
 use ::uuid::Uuid;
 use actix_files::NamedFile;
@@ -18,7 +18,7 @@ use matroska_demuxer::{Frame, MatroskaFile, TrackType};
 use sea_orm::{ActiveEnum, EntityTrait};
 use serde::Deserialize;
 use validator::{Validate, ValidationError};
-use webm::mux::{AudioCodecId, Segment, Track, VideoCodecId, Writer};
+use webm::mux::{AudioCodecId, Segment, VideoCodecId, Writer};
 
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
@@ -156,6 +156,8 @@ pub mod uuid {
             use super::*;
 
             pub mod end_timestamp {
+                use webm::mux::Track;
+
                 use super::*;
 
                 #[derive(Deserialize, Validate, Debug)]
@@ -261,183 +263,53 @@ pub mod uuid {
                         });
 
                     let timescale = file.info().timestamp_scale().get();
-                    let mut processing_track = (video_track.is_some(), audio_track.is_some());
-                    let mut start_timestamp = params.start_timestamp;
-                    let mut end_timestamp = params.end_timestamp;
-                    let mut video_keyframe_buffer = Vec::new();
-                    let mut audio_keyframe_buffer = Vec::new();
+                    let mut start_timestamp =
+                        params.start_timestamp / 1_000_000_000 * 1_000_000_000;
+                    let mut end_timestamp = params.end_timestamp / 1_000_000_000 * 1_000_000_000;
+                    let mut frame = Frame::default();
 
-                    file.seek(params.start_timestamp.saturating_sub(1_999_999_999) / timescale)
-                        .unwrap();
+                    if let Some((id, _)) = video_track {
+                        while let Ok(true) = file.next_frame(&mut frame) {
+                            if id == frame.track && frame.timestamp > 0 {
+                                let frametime = frame.timestamp * timescale;
+                                let offset = 100_000_000 % frametime + frametime;
 
-                    // mux before from the last keyframe to the first frame
-                    fn mux_start(
-                        track: &mut Option<(u64, impl Track)>,
-                        keyframe_buffer: &mut Vec<Rc<Frame>>,
-                        frame: Rc<Frame>,
-                        track_id: u64,
-                        keyframe: bool,
-                    ) {
-                        if let Some((id, _)) = track {
-                            if track_id == *id {
-                                if keyframe {
-                                    keyframe_buffer.clear();
-                                }
+                                start_timestamp = start_timestamp.saturating_sub(offset);
+                                end_timestamp = end_timestamp.saturating_sub(offset);
 
-                                keyframe_buffer.push(frame);
+                                break;
                             }
                         }
                     }
 
-                    fn mux_middle(
-                        track: &mut Option<(u64, impl Track)>,
-                        keyframe_buffer: &mut Vec<Rc<Frame>>,
-                        frame: Rc<Frame>,
-                        track_id: u64,
-                        keyframe: bool,
-                        timescale: u64,
-                        start_timestamp: &mut u64,
-                        end_timestamp: &mut u64,
-                        processing_track: &mut bool,
-                    ) {
-                        if let Some((id, track_writer)) = track {
-                            if track_id == *id {
-                                keyframe_buffer.push(frame);
-
-                                if keyframe {
-                                    if !keyframe_buffer.is_empty() {
-                                        for frame in keyframe_buffer.drain(..) {
-                                            let timestamp = frame.timestamp * timescale;
-
-                                            *start_timestamp = (*start_timestamp).min(timestamp);
-
-                                            if timestamp > *end_timestamp {
-                                                *end_timestamp = timestamp;
-                                                *processing_track = false;
-                                            }
-
-                                            track_writer.add_frame(
-                                                &frame.data,
-                                                timestamp - *start_timestamp,
-                                                frame.is_keyframe.unwrap_or(false),
-                                            );
-                                        }
-                                    }
-
-                                    keyframe_buffer.clear();
-                                }
-                            }
-                        }
-                    }
+                    file.seek(start_timestamp / timescale).unwrap();
 
                     loop {
-                        let mut frame = Frame::default();
                         let Ok(true) = file.next_frame(&mut frame) else {
                             break;
                         };
-                        let frame = Rc::new(frame);
 
-                        if let (false, false) = processing_track {
+                        let timestamp = frame.timestamp * timescale;
+
+                        if timestamp > end_timestamp {
                             break;
                         }
 
-                        let timestamp = frame.timestamp * timescale;
                         let keyframe = frame.is_keyframe.unwrap_or(false);
                         let track_id = frame.track;
 
-                        if timestamp < start_timestamp {
-                            mux_start(
-                                &mut video_track,
-                                &mut video_keyframe_buffer,
-                                frame.clone(),
-                                track_id,
-                                keyframe,
-                            );
-                            mux_start(
-                                &mut audio_track,
-                                &mut audio_keyframe_buffer,
-                                frame,
-                                track_id,
-                                keyframe,
-                            );
-
-                            continue;
+                        if let Some((id, ref mut track)) = video_track {
+                            if id == track_id {
+                                track.add_frame(&frame.data, timestamp, keyframe);
+                            }
                         }
 
-                        if timestamp == start_timestamp && keyframe {
-                            video_keyframe_buffer = video_keyframe_buffer.pop().as_slice().to_vec();
-                            audio_keyframe_buffer = audio_keyframe_buffer.pop().as_slice().to_vec();
-                            start_timestamp = timestamp;
-                        }
-
-                        mux_middle(
-                            &mut video_track,
-                            &mut video_keyframe_buffer,
-                            frame.clone(),
-                            track_id,
-                            keyframe,
-                            timescale,
-                            &mut start_timestamp,
-                            &mut end_timestamp,
-                            &mut processing_track.0,
-                        );
-                        mux_middle(
-                            &mut audio_track,
-                            &mut audio_keyframe_buffer,
-                            frame.clone(),
-                            track_id,
-                            keyframe,
-                            timescale,
-                            &mut start_timestamp,
-                            &mut end_timestamp,
-                            &mut processing_track.0,
-                        );
-                    }
-
-                    // mux after the last keyframe
-                    fn mux_end(
-                        track: &mut Option<(u64, impl Track)>,
-                        keyframe_buffer: &mut Vec<Rc<Frame>>,
-                        timescale: u64,
-                        start_timestamp: &mut u64,
-                        end_timestamp: &mut u64,
-                    ) {
-                        if let Some((_, track_writer)) = track {
-                            if !keyframe_buffer.is_empty() {
-                                for frame in keyframe_buffer.drain(..) {
-                                    let timestamp = frame.timestamp * timescale;
-
-                                    *start_timestamp = (*start_timestamp).min(timestamp);
-
-                                    if timestamp > *end_timestamp {
-                                        *end_timestamp = timestamp;
-                                        break;
-                                    }
-
-                                    track_writer.add_frame(
-                                        &frame.data,
-                                        timestamp - *start_timestamp,
-                                        frame.is_keyframe.unwrap_or(false),
-                                    );
-                                }
+                        if let Some((id, ref mut track)) = audio_track {
+                            if id == track_id {
+                                track.add_frame(&frame.data, timestamp, keyframe);
                             }
                         }
                     }
-
-                    mux_end(
-                        &mut video_track,
-                        &mut video_keyframe_buffer,
-                        timescale,
-                        &mut start_timestamp,
-                        &mut end_timestamp,
-                    );
-                    mux_end(
-                        &mut audio_track,
-                        &mut audio_keyframe_buffer,
-                        timescale,
-                        &mut start_timestamp,
-                        &mut end_timestamp,
-                    );
 
                     segment
                         .try_finalize(Some((end_timestamp - start_timestamp) / timescale))
@@ -473,9 +345,8 @@ pub mod uuid {
                                 .ok_or_else(|| {
                                     ErrorNotFound("Unable to find a video with this resolution")
                                 })?;
-
                             let last_frame_timestamp =
-                                (video.duration.to_owned() * 1_000_000_000.0) as u64;
+                                (video.duration.to_owned() * 1_000_000.0) as u64 * 1_000;
 
                             data.redis_client
                                 .set::<RedisValue, _, _>(
@@ -500,7 +371,9 @@ pub mod uuid {
                             "X-Content-Range",
                             format!(
                                 "{}-{}/{}",
-                                start_timestamp, end_timestamp, last_frame_timestamp
+                                start_timestamp,
+                                end_timestamp,
+                                last_frame_timestamp.max(end_timestamp)
                             ),
                         ))
                         .respond_to(&request))

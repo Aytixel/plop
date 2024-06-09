@@ -4,32 +4,39 @@ export class VideoSource extends MediaSource {
     #source_buffer
     #resolution = 0
     #buffered
-    #min_chunk_size = 0.5
+    #chunk_size = 1
+    #buffer_size = 5
+    #bitrate_coefficient = 1
     #chunk_buffer = []
     #appending_segment = false
+    #loaded_resolution
+    #loading = false
     request_latency = 0
     download_latency = 0
-    #loading = false
-    #length = this.#min_chunk_size
-    #start = 0
 
     constructor(video, video_metadata, speed) {
         super()
 
         this.#video = video
         this.#video_metadata = video_metadata
+        this.#loaded_resolution = new Array(Math.ceil(video_metadata.duration)).fill(null)
 
-        if (speed !== undefined) this.#getResolution(speed)
+        if (speed !== undefined) this.#setResolution(speed)
 
+        this.#video.addEventListener("play", () => this.#start())
+        this.#video.addEventListener("timeupdate", () => this.#start())
+        this.#video.addEventListener("seeking", () => this.#start())
         this.addEventListener("sourceopen", () => {
-            this.#source_buffer = this.addSourceBuffer(`video/webm;codecs=\"vp9${this.hasAudio ? ",opus" : ""}\"`)
+            const mime_type = `video/webm;codecs=\"vp9${this.hasAudio ? ",opus" : ""}\"`
+
+            this.#source_buffer = this.addSourceBuffer(mime_type)
             this.#source_buffer.mode = "segments"
             this.#source_buffer.appendWindowStart = 0
             this.#source_buffer.appendWindowEnd = this.#video_metadata.duration
             this.#buffered = this.#source_buffer.buffered
             this.duration = this.#video_metadata.duration
 
-            console.log(`Media type : video/webm;codecs=\"vp9${this.hasAudio ? ",opus" : ""}\"`)
+            console.log(`Media type : ${mime_type}`)
 
             const appendSegment = () => {
                 if (this.#chunk_buffer.length) {
@@ -37,22 +44,15 @@ export class VideoSource extends MediaSource {
 
                     const { range_start, range_end, data } = this.#chunk_buffer.shift()
 
-                    this.#source_buffer.addEventListener("updateend", () => {
-                        this.#source_buffer.timestampOffset = range_start
-                        this.#source_buffer.appendBuffer(data)
-                    }, { once: true })
-
-                    if (this.bufferedEnd >= range_end)
-                        this.#source_buffer.onupdateend()
-                    else
-                        this.#source_buffer.remove(this.bufferedEnd, range_end)
+                    this.#source_buffer.appendWindowEnd = Math.min(range_end / 1_000_000_000, this.#video_metadata.duration)
+                    this.#source_buffer.appendBuffer(data)
                 } else {
                     this.#appending_segment = false
                 }
             }
 
             this.#source_buffer.onupdateend = appendSegment
-            this.start()
+            this.#start()
         }, { once: true })
     }
 
@@ -80,25 +80,9 @@ export class VideoSource extends MediaSource {
         return this.#source_buffer.buffered.length ? this.#buffered = this.#source_buffer.buffered : this.#buffered
     }
 
-    get bufferedEnd() {
-        if (this.buffered.length) {
-            for (let i = this.buffered.length - 1; i > -1; i--)
-                if (this.#video.currentTime >= this.buffered.start(i) && this.#video.currentTime <= this.buffered.end(i))
-                    return this.buffered.end(i)
-        }
-
-        return 0
-    }
-
-    get #continue() {
-        return this.#video.currentTime > (this.bufferedEnd - 5) && this.bufferedEnd < (this.#video_metadata.duration - 1 / this.#video_metadata.framerate)
-    }
-
-    start() {
-        if (!this.#loading && this.#continue) {
+    #start() {
+        if (!this.#loading) {
             this.#loading = true
-            this.#start = this.#video.currentTime
-            this.#length ||= this.#min_chunk_size
 
             this.#nextSegment()
         }
@@ -121,44 +105,32 @@ export class VideoSource extends MediaSource {
         )
     }
 
-    #getResolution(speed) {
-        this.#resolution = Math.max(this.#video_metadata.bitrates.findLastIndex(bitrate => bitrate * 2.2 < speed), 0)
+    #setResolution(speed) {
+        this.#resolution = Math.max(this.#video_metadata.bitrates.findLastIndex(bitrate => bitrate * this.#bitrate_coefficient < speed), 0)
     }
 
-    #setTimeout(key, abort_controller) {
-        if (this[key])
-            return setTimeout(() => {
-                this[key] = 0
-                this.#length = Math.round(Math.max(this.#length / 2, this.#min_chunk_size))
+    #getFetchOptions() {
+        const start = Math.floor(this.#video.currentTime)
 
-                abort_controller.abort("Request timeout : Certainly due to a change in connection speed.")
-                this.#nextSegment()
-            }, this[key] * 2)
-        else
-            return null
+        for (let i = start; true; i++) {
+            if (i == start + this.#buffer_size || i >= this.#loaded_resolution.length)
+                return null
+
+            if (this.#loaded_resolution[i] === null)
+                return { start: i * 1_000_000_000, length: this.#chunk_size * 1_000_000_000, resolution: this.resolution }
+        }
     }
 
-    #clearTimeout(timeout_id) {
-        if (timeout_id != null) clearTimeout(timeout_id)
-    }
-
-    async #fetch() {
-        const start = Math.round(this.#start * 1_000_000_000)
-        const end = Math.round(Math.min(this.#start + this.#length, this.#video_metadata.duration) * 1_000_000_000)
+    async #fetch(fetch_options) {
+        const start = Math.round(fetch_options.start)
+        const end = Math.round(fetch_options.start + fetch_options.length)
 
         if (start == end)
             throw "Request rejected : length of zero"
 
-        const abort_controller = new AbortController()
-        const timeout_id = this.#setTimeout("request_latency", abort_controller)
         const t0 = Date.now()
-        const response = await fetch(
-            `/video/${this.#video_metadata.uuid}/${this.resolution}/${start}/${end}`,
-            { signal: abort_controller.signal }
-        )
+        const response = await fetch(`/video/${this.#video_metadata.uuid}/${this.resolution}/${start}/${end}`)
         const t1 = Date.now()
-
-        this.#clearTimeout(timeout_id)
 
         const request_latency = this.request_latency = Math.max(t1 - t0, 1)
 
@@ -170,21 +142,17 @@ export class VideoSource extends MediaSource {
 
         return {
             response,
-            abort_controller,
             request_latency,
-            range_start: Math.max(range_start / 1_000_000_000, 0),
-            range_end: Math.min(range_end / 1_000_000_000, this.#video_metadata.duration)
+            range_start: range_start,
+            range_end: range_end,
         }
     }
 
-    async #read(response, abort_controller) {
-        const timeout_id = this.#setTimeout("download_latency", abort_controller)
+    async #read(response) {
         const t2 = Date.now()
         const data = await response.arrayBuffer()
         const t3 = Date.now()
         const download_latency = this.download_latency = Math.max(t3 - t2, 1)
-
-        this.#clearTimeout(timeout_id)
 
         return { data, download_latency, speed: data.byteLength * 1_000 / download_latency }
     }
@@ -198,25 +166,25 @@ export class VideoSource extends MediaSource {
 
     async #nextSegment() {
         try {
-            const { response, abort_controller, request_latency, range_start, range_end } = await this.#fetch()
-            const { data, download_latency, speed } = await this.#read(response, abort_controller)
+            const fetch_options = this.#getFetchOptions()
 
-            this.#log(speed, download_latency, request_latency, range_start, range_end)
-            this.#getResolution(speed)
-            this.#start = range_end
-
-            if (this.#continue) {
-                this.#length = Math.round(speed / this.length * this.#video_metadata.duration)
-                this.#length = Math.round(Math.min(Math.max(this.#length, this.#min_chunk_size) + this.#start, this.#video_metadata.duration) - this.#start)
-
-                if (this.#length > 0)
-                    this.#nextSegment()
-                else
-                    this.#loading = false
-            } else {
+            if (fetch_options === null) {
                 this.#loading = false
+                return null
             }
 
+            const { response, request_latency, range_start, range_end } = await this.#fetch(fetch_options)
+            const { data, download_latency, speed } = await this.#read(response)
+            const start = Math.round(range_start / 1_000_000_000)
+            const end = Math.round(range_end / 1_000_000_000)
+
+            for (let i = start; i < end; i++) {
+                this.#loaded_resolution[i] = fetch_options.resolution
+            }
+
+            this.#log(speed, download_latency, request_latency, range_start, range_end)
+            this.#setResolution(speed)
+            this.#nextSegment()
             this.#appendSegment(range_start, range_end, data)
         } catch (error) {
             if (typeof error === "string")

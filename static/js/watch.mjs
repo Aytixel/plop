@@ -76,9 +76,6 @@ video_player.poster = URL.createObjectURL(data)
 
 const video_source = new VideoSource(video_player, video_metadata, data.size * 1_000 / Math.max(t1 - t0, 1))
 
-video_player.addEventListener("play", () => video_source.start())
-video_player.addEventListener("timeupdate", () => video_source.start())
-video_player.addEventListener("seeking", () => video_source.start())
 video_player.addEventListener("loadedmetadata", () => video_player.play())
 
 video_player.src = URL.createObjectURL(video_source)
