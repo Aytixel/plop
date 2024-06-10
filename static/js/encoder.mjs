@@ -283,6 +283,7 @@ export class Encoder extends EventTarget {
                 })
                 encode_options.video_encoder.configure(video_configs[index])
                 encode_options.timestamp = 0
+                encode_options.frame_count = 0
 
                 return encode_options
             })
@@ -291,11 +292,8 @@ export class Encoder extends EventTarget {
             const canvas_context = canvas.getContext("2d")
             const duration = Math.round(this.#video.duration * 1_000_000)
             const high_encode_options = encode_options_list[encode_options_list.length - 1]
-            let frame_count = 0
 
             const encodeFrame = async () => {
-                frame_count++
-
                 canvas_context.clearRect(0, 0, canvas.width, canvas.height)
                 canvas_context.drawImage(this.#video, 0, 0)
 
@@ -312,7 +310,7 @@ export class Encoder extends EventTarget {
                         encode_options.timestamp = Math.min(encode_options.timestamp + Math.round(1_000_000 / encode_options.framerate), duration)
 
                         encode_options.video_encoder.encode(video_frame, {
-                            keyFrame: frame_count % encode_options.framerate == 0
+                            keyFrame: encode_options.frame_count++ % encode_options.framerate == 0
                         })
                     }
                 }
