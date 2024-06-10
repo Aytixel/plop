@@ -4,7 +4,6 @@ export class VideoSource extends MediaSource {
     #source_buffer
     #resolution = 0
     #buffered
-    #chunk_size = 1
     #buffer_size = 5
     #bitrate_coefficient = 1
     #chunk_buffer = []
@@ -32,7 +31,6 @@ export class VideoSource extends MediaSource {
             this.#source_buffer = this.addSourceBuffer(mime_type)
             this.#source_buffer.mode = "segments"
             this.#source_buffer.appendWindowStart = 0
-            this.#source_buffer.appendWindowEnd = this.#video_metadata.duration
             this.#buffered = this.#source_buffer.buffered
             this.duration = this.#video_metadata.duration
 
@@ -112,24 +110,17 @@ export class VideoSource extends MediaSource {
     #getFetchOptions() {
         const start = Math.floor(this.#video.currentTime)
 
-        for (let i = start; true; i++) {
-            if (i == start + this.#buffer_size || i >= this.#loaded_resolution.length)
-                return null
-
-            if (this.#loaded_resolution[i] === null)
-                return { start: i * 1_000_000_000, length: this.#chunk_size * 1_000_000_000, resolution: this.resolution }
+        for (let i = start; i < start + this.#buffer_size && i < this.#loaded_resolution.length; i++) {
+            if (this.#loaded_resolution[i] === null || this.#loaded_resolution[i] < this.resolution)
+                return { start: i * 1_000_000_000, end: (i + 1) * 1_000_000_000, resolution: this.resolution }
         }
+
+        return null
     }
 
     async #fetch(fetch_options) {
-        const start = Math.round(fetch_options.start)
-        const end = Math.round(fetch_options.start + fetch_options.length)
-
-        if (start == end)
-            throw "Request rejected : length of zero"
-
         const t0 = Date.now()
-        const response = await fetch(`/video/${this.#video_metadata.uuid}/${this.resolution}/${start}/${end}`)
+        const response = await fetch(`/video/${this.#video_metadata.uuid}/${fetch_options.resolution}/${fetch_options.start}/${fetch_options.end}`)
         const t1 = Date.now()
 
         const request_latency = this.request_latency = Math.max(t1 - t0, 1)
