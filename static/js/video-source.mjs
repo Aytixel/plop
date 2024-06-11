@@ -5,7 +5,7 @@ export class VideoSource extends MediaSource {
     #resolution = 0
     #buffered
     #buffer_size = 5
-    #bitrate_coefficient = 1
+    #bitrate_coefficient = 1.5
     #chunk_buffer = []
     #appending_segment = false
     #loaded_resolution

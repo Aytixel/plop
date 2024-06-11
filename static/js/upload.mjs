@@ -128,7 +128,6 @@ video_upload_form_element.addEventListener("submit", async e => {
         progress_element.value = Math.round(e.encoding * 1_000)
         progress_element.max = Math.round(e.duration * 1_000)
     })
-    encoder.addEventListener("encodingended", console.log)
 
     await encoder.encodeVideo(await encoder.getVideoEncodeOptionsList())
 
