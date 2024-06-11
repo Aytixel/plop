@@ -269,17 +269,49 @@ pub mod uuid {
                     let mut frame = Frame::default();
 
                     if let Some((id, _)) = video_track {
-                        while let Ok(true) = file.next_frame(&mut frame) {
-                            if id == frame.track && frame.timestamp > 0 {
-                                let frametime = frame.timestamp * timescale;
-                                let offset = 100_000_000 % frametime + frametime;
+                        const MAX_FRAMERATE: u64 = 60;
+                        const MIN_FRAMETIME: u64 = 1_000_000_000 / MAX_FRAMERATE;
 
-                                start_timestamp = start_timestamp.saturating_sub(offset);
-                                end_timestamp = end_timestamp.saturating_sub(offset);
+                        let mut find_keyframe = |timestamp: &mut u64| {
+                            let mut timestamp_offset = 0;
 
-                                break;
+                            'find_keyframe: for _ in 0..MAX_FRAMERATE / 2 {
+                                file.seek((*timestamp + timestamp_offset) / timescale)
+                                    .unwrap();
+
+                                while let Ok(true) = file.next_frame(&mut frame) {
+                                    if id == frame.track {
+                                        if frame.is_keyframe.unwrap_or(false) {
+                                            *timestamp = frame.timestamp * timescale;
+
+                                            break 'find_keyframe;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                file.seek((*timestamp - timestamp_offset) / timescale)
+                                    .unwrap();
+
+                                while let Ok(true) = file.next_frame(&mut frame) {
+                                    if id == frame.track {
+                                        if frame.is_keyframe.unwrap_or(false) {
+                                            *timestamp = frame.timestamp * timescale;
+
+                                            break 'find_keyframe;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                timestamp_offset += MIN_FRAMETIME;
                             }
-                        }
+                        };
+
+                        find_keyframe(&mut start_timestamp);
+                        find_keyframe(&mut end_timestamp);
                     }
 
                     file.seek(start_timestamp / timescale).unwrap();
