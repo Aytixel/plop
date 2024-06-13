@@ -397,7 +397,6 @@ pub mod uuid {
 
                     Ok(HttpResponse::with_body(StatusCode::OK, buffer)
                         .customize()
-                        .insert_header(("Cache-Control", "no-cache"))
                         .insert_header(("Content-Type", "video/webm"))
                         .insert_header((
                             "X-Content-Range",
