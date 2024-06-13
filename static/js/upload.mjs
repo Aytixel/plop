@@ -11,6 +11,19 @@ function isCompatible() {
     return "AudioEncoder" in window && "VideoEncoder" in window
 }
 
+// video list
+const video_list_element = document.getElementById("video_list")
+
+for (const video of video_list_element.children) {
+    const vues_element = video.getElementsByClassName("vues")[0]
+
+    vues_element.textContent = formatVues(+vues_element.textContent)
+
+    const date_element = video.getElementsByTagName("time")[0]
+
+    date_element.textContent = time_ago.format(new $mol_time_moment(date_element.dateTime).valueOf())
+}
+
 // video upload form
 const header_element = document.getElementsByTagName("header")[0]
 
@@ -97,6 +110,56 @@ video_upload_form_element.addEventListener("submit", async e => {
         audio: document.getElementById("audio_progress"),
     }
     const video_upload_progress = document.getElementById("video_upload_progress")
+    const video_list_item_element = document.createElement("li")
+
+    video_list_item_element.classList.add("button", "border")
+    video_list_item_element.tabIndex = 0
+    video_list_element.prepend(video_list_item_element)
+
+    const video_preview_element = document.createElement("video-preview")
+
+    video_preview_element.dataset.uuid = video_uuid
+    video_preview_element.dataset.duration = video_element.duration
+    video_list_item_element.append(video_preview_element)
+
+    const top_element = document.createElement("div")
+
+    top_element.classList.add("top")
+    video_list_item_element.append(top_element)
+
+    const title_element = document.createElement("span")
+
+    title_element.classList.add("title")
+    title_element.textContent = form_data.get("title")
+    top_element.append(title_element)
+
+    const vues_element = document.createElement("span")
+
+    vues_element.classList.add("vues")
+    vues_element.textContent = formatVues(0)
+    top_element.append(vues_element)
+
+    const time_element = document.createElement("time")
+
+    time_element.dateTime = new Date().toISOString()
+    time_element.textContent = time_ago.format(new $mol_time_moment().valueOf())
+    top_element.append(time_element)
+
+    const bottom_element = document.createElement("div")
+
+    bottom_element.classList.add("bottom")
+    video_list_item_element.append(bottom_element)
+
+    const resolution_elements = {}
+
+    for (const resolution of [144, 240, 360, 480, 720, 1080, 1440]) {
+        const resolution_element = document.createElement("span")
+        const is_encoding_resolution = video_encode_options_list.find(video_encode_options => video_encode_options.resolution == resolution) !== undefined
+
+        resolution_element.textContent = `${resolution}p ${is_encoding_resolution ? "⚠️" : "🚫"}`
+        resolution_elements[resolution] = resolution_element
+        bottom_element.append(resolution_element)
+    }
 
     encoder.addEventListener("encodingdata", e => {
         const chunk = {
@@ -116,6 +179,7 @@ video_upload_form_element.addEventListener("submit", async e => {
                 video_uuid
             }
 
+            resolution_elements[e.resolution].textContent = `${e.resolution}p ✅`
             worker[0].postMessage(chunk)
             worker.reverse()
         }, 200)
@@ -129,7 +193,7 @@ video_upload_form_element.addEventListener("submit", async e => {
         progress_element.max = Math.round(e.duration * 1_000)
     })
 
-    await encoder.encodeVideo(await encoder.getVideoEncodeOptionsList())
+    await encoder.encodeVideo(video_encode_options_list)
 
     video_upload_progress.hidden = true
 
@@ -145,16 +209,3 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     uploading_video = false
 })
-
-// video list
-const video_list_element = document.getElementById("video_list")
-
-for (const video of video_list_element.children) {
-    const vues_element = video.getElementsByClassName("vues")[0]
-
-    vues_element.textContent = formatVues(+vues_element.textContent)
-
-    const date_element = video.getElementsByTagName("time")[0]
-
-    date_element.textContent = time_ago.format(new $mol_time_moment(date_element.dateTime).valueOf())
-}
