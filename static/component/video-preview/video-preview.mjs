@@ -13,6 +13,10 @@ class VideoPreviewElement extends HTMLElement {
 
         style.textContent += /*css*/`
             :host {
+                aspect-ratio: 16/9;
+            }
+
+            a {
                 display: inline-grid;
 
                 aspect-ratio: 16/9;
@@ -33,6 +37,8 @@ class VideoPreviewElement extends HTMLElement {
                 width: 100%;
                 min-height: 0;
                 height: 100%;
+
+                background-color: rgb(var(--color-light));
             }
 
             img {
@@ -56,9 +62,12 @@ class VideoPreviewElement extends HTMLElement {
             }
         `
 
+        const link = document.createElement("a")
         const img = document.createElement("img")
         const video = document.createElement("video")
         const duration_element = document.createElement("div")
+
+        link.href = `/watch/${uuid}`
 
         img.alt = `Miniature de la video`
         img.loading = "lazy"
@@ -75,17 +84,23 @@ class VideoPreviewElement extends HTMLElement {
 
         duration_element.textContent = formatDuration(duration)
 
-        shadow.append(video)
-        shadow.append(img)
-        shadow.append(duration_element)
+        link.append(video)
+        link.append(img)
+        link.append(duration_element)
+        shadow.append(link)
         shadow.append(style)
 
         let timeout
+
+        function update_link() {
+            link.href = `/watch/${uuid}?t=${video.currentTime}`
+        }
 
         this.addEventListener("pointerover", () => {
             timeout = setTimeout(async () => {
                 video.currentTime = 0
 
+                video.addEventListener("timeupdate", update_link)
                 await video.play()
 
                 img.style.display = "none"
@@ -96,8 +111,10 @@ class VideoPreviewElement extends HTMLElement {
         this.addEventListener("pointerout", () => {
             if (!timeout) {
                 if (!video.paused) {
+                    video.removeEventListener("timeupdate", update_link)
                     video.pause()
 
+                    link.href = `/watch/${uuid}`
                     img.style.display = ""
                 }
             } else {
@@ -106,7 +123,6 @@ class VideoPreviewElement extends HTMLElement {
                 timeout = null
             }
         })
-        this.addEventListener("click", () => window.location = `/watch/${uuid}` + (video.paused ? "" : `?t=${video.currentTime}`), { capture: true })
     }
 }
 
