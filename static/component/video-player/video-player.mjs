@@ -449,10 +449,10 @@ class VideoPlayerElement extends HTMLElement {
 
     async connectedCallback() {
         const shadow = this.attachShadow({ mode: "open" })
-        const width = this.getAttribute("width") || ""
-        const height = this.getAttribute("height") || ""
-        const title = this.getAttribute("title") || ""
-        const duration = this.getAttribute("duration") || ""
+        const width = this.dataset.width || ""
+        const height = this.dataset.height || ""
+        const title = this.dataset.title || ""
+        const duration = this.dataset.duration || ""
 
         shadow.innerHTML = /*html*/`
             <div id="video_player" data-ambient_light="true" data-paused="true" data-ended="false" data-volume="high" data-fullscreen="false" tabindex="0" style="display: none">
