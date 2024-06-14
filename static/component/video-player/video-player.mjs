@@ -16,6 +16,9 @@ class VideoPlayer extends EventTarget {
     #volume_slider
     #progress
     #duration
+    #preview
+    #preview_time
+    #preview_container
 
     #metadata = {
         uuid: undefined,
@@ -42,6 +45,9 @@ class VideoPlayer extends EventTarget {
         this.#volume_slider = parent.getElementById("video_player_volume_slider")
         this.#progress = parent.getElementById("video_player_progress")
         this.#duration = parent.getElementById("video_player_duration")
+        this.#preview = parent.getElementById("video_player_preview")
+        this.#preview_time = parent.getElementById("video_player_preview_time")
+        this.#preview_container = parent.getElementById("video_player_preview_container")
 
         if (typeof options.uuid === "string") this.#metadata.uuid = options.uuid
         if (typeof options.title === "string") this.#metadata.title = options.title
@@ -147,6 +153,15 @@ class VideoPlayer extends EventTarget {
 
             this.#progress_slider.addEventListener("pointerup", up)
             this.#progress_slider.addEventListener("pointerout", up)
+        })
+        this.#progress_slider.addEventListener("pointermove", e => {
+            const preview_width = this.#preview.clientWidth
+            const rect = this.#progress_slider.getBoundingClientRect()
+            const position = e.clientX - rect.left
+            const offset = Math.min(Math.max(position - preview_width / 2, 0), rect.width - preview_width)
+
+            this.#preview_container.style.translate = `${offset}px 0`
+            this.#preview_time.textContent = formatDuration(this.#preview.currentTime = Math.min(Math.max(position, 0), rect.width) / rect.width * this.duration)
         })
         this.#volume_slider.addEventListener("input", () => this.volume = this.#volume_slider.value)
 
@@ -358,6 +373,14 @@ class VideoPlayer extends EventTarget {
         return this.#video.src
     }
 
+    set preview(preview) {
+        this.#preview.src = preview
+    }
+
+    get preview() {
+        return this.#preview.src
+    }
+
     get videoWidth() {
         return this.#video.videoWidth
     }
@@ -462,7 +485,11 @@ class VideoPlayerElement extends HTMLElement {
                     <div id="video_player_title">${title}</div>
                     <div id="video_player_controls">
                         <input type="range" min="0" value="0" max="${duration}" step="0.05" id="video_player_progress_slider" aria-label="Barre de Progression">
-                        <div>
+                        <div id="video_player_preview_container">
+                            <video id="video_player_preview" width="256" height="144" muted=""></video>
+                            <div id="video_player_preview_time">0:00</div>
+                        </div>
+                        <div id="video_player_controls_bottom">
                             <button id="video_player_play_button" aria-label="Bouton Play">
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                                     <path d="M6 5H8V19H6V5ZM16 5H18V19H16V5Z"></path>
@@ -520,6 +547,7 @@ class VideoPlayerElement extends HTMLElement {
 
         const player = shadow.querySelector("#video_player")
         const video = shadow.querySelector("video")
+        const preview = shadow.querySelector("#video_player_preview")
         const updateSize = () => {
             requestAnimationFrame(() => {
                 if (player.dataset.fullscreen == "false") {
@@ -529,6 +557,8 @@ class VideoPlayerElement extends HTMLElement {
                     video.style.maxWidth = window.innerWidth + "px"
                     video.style.maxHeight = window.innerHeight + "px"
                 }
+
+                preview.style.maxHeight = preview.style.maxWidth = video.clientHeight * .25 + "px"
 
                 if (!this.clientHeight) updateSize()
             })

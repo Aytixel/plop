@@ -71,7 +71,7 @@ const video_filepicker_element = document.getElementById("video_filepicker")
 
 video_filepicker_element.addEventListener("input", () => {
     if (video_filepicker_element.files.length > 0)
-        video_element.src = URL.createObjectURL(video_filepicker_element.files[0])
+        video_element.preview = video_element.src = URL.createObjectURL(video_filepicker_element.files[0])
 })
 
 const video_upload_form_element = document.getElementById("video_upload_form")

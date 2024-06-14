@@ -79,6 +79,7 @@ const video_source = new VideoSource(video_player, video_metadata, data.size * 1
 video_player.addEventListener("loadedmetadata", () => video_player.play())
 
 video_player.src = URL.createObjectURL(video_source)
+video_player.preview = `/video/${video_metadata.uuid}/144`
 
 window.video_source = video_source
 window.video_player = video_player
