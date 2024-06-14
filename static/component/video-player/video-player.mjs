@@ -551,22 +551,20 @@ class VideoPlayerElement extends HTMLElement {
         const updateSize = () => {
             requestAnimationFrame(() => {
                 if (player.dataset.fullscreen == "false") {
-                    video.style.maxWidth = this.clientWidth + "px"
-                    video.style.maxHeight = this.clientHeight + "px"
+                    video.style.width = this.clientWidth + "px"
+                    video.style.height = this.clientHeight + "px"
                 } else {
-                    video.style.maxWidth = window.innerWidth + "px"
-                    video.style.maxHeight = window.innerHeight + "px"
+                    video.style.width = window.innerWidth + "px"
+                    video.style.height = window.innerHeight + "px"
                 }
 
                 preview.style.maxHeight = preview.style.maxWidth = video.clientHeight * .25 + "px"
-
-                if (!this.clientHeight) updateSize()
             })
         }
         const resize_observer = new ResizeObserver(updateSize)
 
         updateSize()
-        resize_observer.observe(this)
+        resize_observer.observe(player)
     }
 }
 
