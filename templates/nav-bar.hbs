@@ -6,7 +6,8 @@
         display: grid;
         align-items: center;
         justify-items: center;
-        gap: 1em;
+        gap: .5em;
+        grid-template-rows: 1fr 1fr;
         grid-template-columns: auto 1fr auto auto;
 
         position: sticky;
@@ -16,44 +17,179 @@
 
         margin-bottom: 1em;
 
-        padding: .5em 1.5em;
+        padding: .5em .5em;
 
         height: 3.5em;
         width: 100%;
     }
 
+    #nav-bar::before {
+        display: block;
+
+        position: absolute;
+        top: 0;
+        left: 0;
+
+        width: 100%;
+        height: 3.5em;
+
+        content: "";
+
+        background-color: var(--bg-color);
+
+        backdrop-filter: var(--bg-blur);
+    }
+
+    #nav-bar.search::before {
+        height: 6.5em;
+
+        background-color: rgb(var(--color-light) / .5);
+
+        backdrop-filter: blur(10px);
+    }
+
+    #nav-bar label {
+        justify-self: end;
+    }
+
+    #nav-bar:not(.logged) label {
+        grid-column: 3;
+        grid-row: 1;
+    }
+
+    #nav-bar.search label {
+        display: none;
+    }
+
+    #nav-bar form {
+        display: flex;
+        justify-content: center;
+        grid-column: 1/5;
+        grid-row: 2;
+
+        width: 100%;
+
+        opacity: 0;
+
+        pointer-events: none;
+    }
+
+    #nav-bar.search form {
+        opacity: 1;
+
+        pointer-events: all;
+    }
+
+    #nav-bar-search {
+        max-width: 35em;
+        width: 100%;
+
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    #nav-bar form button {
+        padding-left: .75em !important;
+        padding-right: 1em;
+
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
     #nav-bar upload-button {
         grid-column: 3;
+        grid-row: 1;
     }
 
     #nav-bar account-button {
         grid-column: 4;
+        grid-row: 1;
+    }
+
+    @media (min-width: 450px) {
+        #nav-bar {
+            grid-template-rows: 1fr;
+            gap: 1em;
+
+            padding: .5em 1.5em;
+        }
+
+        #nav-bar.search::before {
+            height: 3.5em;
+
+            background-color: var(--bg-color);
+
+            backdrop-filter: var(--bg-blur);
+        }
+
+        #nav-bar form {
+            grid-column: 2;
+            grid-row: 1;
+
+            opacity: 1;
+
+            pointer-events: all;
+        }
+
+        #nav-bar:not(.logged) form {
+            grid-column: 2/4;
+        }
+
+        #nav-bar label {
+            display: none;
+        }
     }
 </style>
 
 <script type="module">
     const nav_bar = document.getElementById("nav-bar")
-    const offset = nav_bar.clientHeight / 3.5
     const max_opacity = .5
     const max_blur_in_px = 10
 
     function update_nav_bar_bg() {
         requestAnimationFrame(() => {
+            const offset = nav_bar.clientHeight / 3.5
             const scroll_under_offset = window.scrollY < offset
 
-            nav_bar.style.backgroundColor = `rgb(var(--color-light) / ${scroll_under_offset ? (window.scrollY / offset * max_opacity) : max_opacity})`
-            nav_bar.style.backdropFilter = `blur(${scroll_under_offset ? (window.scrollY / offset * max_blur_in_px) : max_blur_in_px}px)`
+            nav_bar.style.setProperty("--bg-color", `rgb(var(--color-light) / ${scroll_under_offset ? (window.scrollY / offset * max_opacity) : max_opacity})`)
+            nav_bar.style.setProperty("--bg-blur", `blur(${scroll_under_offset ? (window.scrollY / offset * max_blur_in_px) : max_blur_in_px}px)`)
         })
     }
 
     update_nav_bar_bg()
 
     window.addEventListener("scroll", update_nav_bar_bg, { passive: true })
+
+    const nav_bar_form = nav_bar.getElementsByTagName("form")[0]
+
+    nav_bar_form.addEventListener("focusin", () => nav_bar.classList.add("search"))
+    nav_bar_form.addEventListener("focusout", () => nav_bar.classList.remove("search"))
+
+    await Clerk.load()
+
+    nav_bar.classList.toggle("logged", !!Clerk.user)
 </script>
 
 <nav id="nav-bar">
     <a class="button rounded inverted" href="/" aria-label="Accueil" width="24" height="24"><img
             src="/android-chrome-192x192.png" alt="Logo">Plop</a>
+    <label for="nav-bar-search" class="button rounded icon inverted">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M18.031 16.6168L22.3137 20.8995L20.8995 22.3137L16.6168 18.031C15.0769 19.263 13.124 20 11 20C6.032 20 2 15.968 2 11C2 6.032 6.032 2 11 2C15.968 2 20 6.032 20 11C20 13.124 19.263 15.0769 18.031 16.6168ZM16.0247 15.8748C17.2475 14.6146 18 12.8956 18 11C18 7.1325 14.8675 4 11 4C7.1325 4 4 7.1325 4 11C4 14.8675 7.1325 18 11 18C12.8956 18 14.6146 17.2475 15.8748 16.0247L16.0247 15.8748Z">
+            </path>
+        </svg>
+    </label>
+    <form method="get" action="/results">
+        <input id="nav-bar-search" type="search" name="q" class="rounded" placeholder="Rechercher">
+        <button type="submit" class="rounded icon" aria-label="Rechercher">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M18.031 16.6168L22.3137 20.8995L20.8995 22.3137L16.6168 18.031C15.0769 19.263 13.124 20 11 20C6.032 20 2 15.968 2 11C2 6.032 6.032 2 11 2C15.968 2 20 6.032 20 11C20 13.124 19.263 15.0769 18.031 16.6168ZM16.0247 15.8748C17.2475 14.6146 18 12.8956 18 11C18 7.1325 14.8675 4 11 4C7.1325 4 4 7.1325 4 11C4 14.8675 7.1325 18 11 18C12.8956 18 14.6146 17.2475 15.8748 16.0247L16.0247 15.8748Z">
+                </path>
+            </svg>
+        </button>
+    </form>
     <upload-button></upload-button>
     <account-button></account-button>
 </nav>
