@@ -53,7 +53,6 @@ class VideoPlayer extends EventTarget {
         if (typeof options.title === "string") this.#metadata.title = options.title
         if (typeof options.ambient_light === "boolean") this.#metadata.ambient_light = options.ambient_light
 
-        const shortcut_on_focus = (typeof options.shortcut_on_focus === "boolean") ? options.shortcut_on_focus : false
         const duration = this.#metadata.duration = (typeof options.duration === "number") ? options.duration : -1
         let start_time = (typeof options.start_time === "number") ? options.start_time : parseFloat(new URLSearchParams(location.search).get("t"))
 
@@ -224,17 +223,23 @@ class VideoPlayer extends EventTarget {
         this.#video_player.addEventListener("pointerdown", () => this.#video_player.focus())
 
         window.addEventListener("keydown", e => {
-            if (!shortcut_on_focus || this.#video_player.contains(parent.activeElement) || this.#video_player == parent.activeElement) {
-                const key_bindings = {
+            const focused = document.activeElement == parent.host
+
+            if (document.activeElement == document.body || focused) {
+                const key_bindings = Object.assign({
                     " ": play,
                     f: fullscreen,
                     p: () => this.requestPictureInPicture(),
                     m: mute,
                     arrowleft: () => this.currentTime = Math.max(this.currentTime - 2, 0),
                     arrowright: () => this.currentTime = Math.min(this.currentTime + 2, this.duration),
-                    arrowup: () => this.volume = Math.min(this.volume + .1, 1),
-                    arrowdown: () => this.volume = Math.max(this.volume - .1, 0),
-                }
+                }, focused
+                    ? {
+                        arrowup: () => this.volume = Math.min(this.volume + .1, 1),
+                        arrowdown: () => this.volume = Math.max(this.volume - .1, 0),
+                    }
+                    : {}
+                )
                 const key = e.key.toLowerCase()
 
                 if (key in key_bindings) {

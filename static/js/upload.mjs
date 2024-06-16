@@ -66,7 +66,7 @@ thumbnail_filepicker_element.addEventListener("input", async () => {
         thumbnail_element.src = await encodeThumbnail(URL.createObjectURL(thumbnail_filepicker_element.files[0]))
 })
 
-const video_element = document.querySelector("video-player").getPlayer({ ambient_light: false, shortcut_on_focus: true })
+const video_element = document.querySelector("video-player").getPlayer({ ambient_light: false })
 const video_filepicker_element = document.getElementById("video_filepicker")
 
 video_filepicker_element.addEventListener("input", () => {
