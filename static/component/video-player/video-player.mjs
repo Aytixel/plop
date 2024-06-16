@@ -1,6 +1,7 @@
 import { formatDuration } from "../../js/utils/duration.mjs"
 
 class VideoPlayer extends EventTarget {
+    #parent
     #video_player
     #canvas
     #context
@@ -19,6 +20,7 @@ class VideoPlayer extends EventTarget {
     #preview
     #preview_time
     #preview_container
+    #fullscreen_element
 
     #metadata = {
         uuid: undefined,
@@ -30,24 +32,26 @@ class VideoPlayer extends EventTarget {
     constructor(parent, options = {}) {
         super()
 
-        this.#video_player = parent.getElementById("video_player")
+        this.#parent = parent
+        this.#video_player = this.#parent.getElementById("video_player")
         this.#canvas = this.#video_player.children[0]
         this.#context = this.#canvas.getContext("2d")
         this.#compute_canvas = this.#canvas.cloneNode()
         this.#compute_context = this.#compute_canvas.getContext("2d")
         this.#video = this.#video_player.children[1]
-        this.#overlay = parent.getElementById("video_player_overlay")
-        this.#play_button = parent.getElementById("video_player_play_button")
-        this.#volume_button = parent.getElementById("video_player_volume_button")
-        this.#popup_button = parent.getElementById("video_player_popup_button")
-        this.#fullscreen_button = parent.getElementById("video_player_fullscreen_button")
-        this.#progress_slider = parent.getElementById("video_player_progress_slider")
-        this.#volume_slider = parent.getElementById("video_player_volume_slider")
-        this.#progress = parent.getElementById("video_player_progress")
-        this.#duration = parent.getElementById("video_player_duration")
-        this.#preview = parent.getElementById("video_player_preview")
-        this.#preview_time = parent.getElementById("video_player_preview_time")
-        this.#preview_container = parent.getElementById("video_player_preview_container")
+        this.#overlay = this.#parent.getElementById("video_player_overlay")
+        this.#play_button = this.#parent.getElementById("video_player_play_button")
+        this.#volume_button = this.#parent.getElementById("video_player_volume_button")
+        this.#popup_button = this.#parent.getElementById("video_player_popup_button")
+        this.#fullscreen_button = this.#parent.getElementById("video_player_fullscreen_button")
+        this.#progress_slider = this.#parent.getElementById("video_player_progress_slider")
+        this.#volume_slider = this.#parent.getElementById("video_player_volume_slider")
+        this.#progress = this.#parent.getElementById("video_player_progress")
+        this.#duration = this.#parent.getElementById("video_player_duration")
+        this.#preview = this.#parent.getElementById("video_player_preview")
+        this.#preview_time = this.#parent.getElementById("video_player_preview_time")
+        this.#preview_container = this.#parent.getElementById("video_player_preview_container")
+        this.#fullscreen_element = options.fullscreen_element ?? this.#parent.host
 
         if (typeof options.uuid === "string") this.#metadata.uuid = options.uuid
         if (typeof options.title === "string") this.#metadata.title = options.title
@@ -223,9 +227,7 @@ class VideoPlayer extends EventTarget {
         this.#video_player.addEventListener("pointerdown", () => this.#video_player.focus())
 
         window.addEventListener("keydown", e => {
-            const focused = document.activeElement == parent.host
-
-            if (document.activeElement == document.body || focused) {
+            if (document.activeElement == document.body || this.focused || this.fullscreen) {
                 const key_bindings = Object.assign({
                     " ": play,
                     f: fullscreen,
@@ -233,13 +235,10 @@ class VideoPlayer extends EventTarget {
                     m: mute,
                     arrowleft: () => this.currentTime = Math.max(this.currentTime - 2, 0),
                     arrowright: () => this.currentTime = Math.min(this.currentTime + 2, this.duration),
-                }, focused
-                    ? {
-                        arrowup: () => this.volume = Math.min(this.volume + .1, 1),
-                        arrowdown: () => this.volume = Math.max(this.volume - .1, 0),
-                    }
-                    : {}
-                )
+                }, this.focused || this.fullscreen ? {
+                    arrowup: () => this.volume = Math.min(this.volume + .1, 1),
+                    arrowdown: () => this.volume = Math.max(this.volume - .1, 0),
+                } : {})
                 const key = e.key.toLowerCase()
 
                 if (key in key_bindings) {
@@ -352,14 +351,18 @@ class VideoPlayer extends EventTarget {
 
         if (this.fullscreen != fullscreen) {
             if (fullscreen)
-                this.#video_player.requestFullscreen()
+                this.#fullscreen_element.requestFullscreen()
             else
                 document.exitFullscreen()
         }
     }
 
     get fullscreen() {
-        return document.fullscreenElement != null
+        return document.fullscreenElement == this.#fullscreen_element
+    }
+
+    get focus() {
+        return document.activeElement == this.#parent.host
     }
 
     set poster(poster) {
