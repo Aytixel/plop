@@ -37,8 +37,6 @@ class VideoPreviewElement extends HTMLElement {
                 width: 100%;
                 min-height: 0;
                 height: 100%;
-
-                background-color: rgb(var(--color-light));
             }
 
             img {
@@ -75,6 +73,7 @@ class VideoPreviewElement extends HTMLElement {
         img.height = 144
         img.src = `/thumbnail/${uuid}`
 
+        video.hidden = true
         video.muted = true
         video.preload = "none"
         video.poster = img.src
@@ -103,7 +102,8 @@ class VideoPreviewElement extends HTMLElement {
                 video.addEventListener("timeupdate", update_link)
                 await video.play()
 
-                img.style.display = "none"
+                img.hidden = true
+                video.hidden = false
 
                 timeout = null
             }, 500)
@@ -115,7 +115,8 @@ class VideoPreviewElement extends HTMLElement {
                     video.pause()
 
                     link.href = `/watch/${uuid}`
-                    img.style.display = ""
+                    img.hidden = false
+                    video.hidden = true
                 }
             } else {
                 clearTimeout(timeout)
