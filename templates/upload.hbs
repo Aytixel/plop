@@ -65,9 +65,13 @@
     </header>
     <hr>
     <main>
+        <div id="video_list_options">
+            <input id="video_list_select_all" type="checkbox" aria-label="Sélectionner toutes les vidéos">
+            <button id="video_list_delete">Supprimer</button>
+        </div>
         <ul id="video_list">
             {{#each videos as |video|}}
-            <li class="button border" tabindex="0">
+            <li class="button border" tabindex="0" data-uuid="{{video.uuid}}" aria-label="{{video.title}}">
                 <video-preview data-uuid="{{video.uuid}}" data-duration="{{video.duration}}"></video-preview>
                 <div class="top">
                     <span class="title">{{video.title}}</span><span class="vues">{{video.vues}}</span><time

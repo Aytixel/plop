@@ -12,7 +12,37 @@ function isCompatible() {
 }
 
 // video list
+const video_list_select_all_element = document.getElementById("video_list_select_all")
+const video_list_delete_element = document.getElementById("video_list_delete")
 const video_list_element = document.getElementById("video_list")
+
+video_list_select_all_element.addEventListener("input", () => {
+    for (const video_list_item_element of video_list_element.children) {
+        video_list_item_element.classList.toggle("active", video_list_select_all_element.checked)
+    }
+})
+
+video_list_delete_element.addEventListener("click", async () => {
+    const video_list = [...video_list_element.children].filter(video => video.classList.contains("active"))
+    const response = await fetch("/upload", {
+        method: "DELETE",
+        body: JSON.stringify({ uuids: video_list.map(video => video.dataset.uuid) })
+    })
+
+    if (!response.ok)
+        alert("Une erreur est survenue : action annuler.")
+
+    const json = await response.json()
+
+    video_list.forEach(video => json.uuids.includes(video.dataset.uuid) && video.remove())
+})
+
+function video_list_item_element_add_event(video_list_item_element) {
+    video_list_item_element.addEventListener("click", () => {
+        video_list_select_all_element.checked = false
+        video_list_item_element.classList.toggle("active")
+    })
+}
 
 for (const video of video_list_element.children) {
     const vues_element = video.getElementsByClassName("vues")[0]
@@ -22,6 +52,8 @@ for (const video of video_list_element.children) {
     const date_element = video.getElementsByTagName("time")[0]
 
     date_element.textContent = time_ago.format(new $mol_time_moment(date_element.dateTime).valueOf())
+
+    video_list_item_element_add_event(video)
 }
 
 // video upload form
@@ -110,10 +142,12 @@ video_upload_form_element.addEventListener("submit", async e => {
         audio: document.getElementById("audio_progress"),
     }
     const video_upload_progress = document.getElementById("video_upload_progress")
+
     const video_list_item_element = document.createElement("li")
 
     video_list_item_element.classList.add("button", "border")
     video_list_item_element.tabIndex = 0
+    video_list_item_element_add_event(video_list_item_element)
     video_list_element.prepend(video_list_item_element)
 
     const video_preview_element = document.createElement("video-preview")

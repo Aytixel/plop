@@ -57,18 +57,25 @@ pub mod uuid {
         pub const VIDEO_REDIS_TIMEOUT: i64 = 3600;
 
         pub async fn find_video(
-            uuid: Uuid,
-            resolution_column: video::Column,
-            video_upload_state: VideoUploadState,
+            uuid: &Uuid,
             data: &Data<AppState<'_>>,
-        ) -> actix_web::Result<video::ActiveModel> {
-            let video = video::Entity::find_by_id(uuid)
+        ) -> actix_web::Result<video::Model> {
+            video::Entity::find_by_id(uuid.clone())
                 .one(&data.db_connection)
                 .await
                 .map_err(|_| {
                     ErrorInternalServerError("Unable to find a video with this resolution")
                 })?
-                .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
+                .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))
+        }
+
+        pub async fn find_video_by_resolution(
+            uuid: &Uuid,
+            resolution_column: video::Column,
+            video_upload_state: VideoUploadState,
+            data: &Data<AppState<'_>>,
+        ) -> actix_web::Result<video::ActiveModel> {
+            let video = find_video(uuid, data).await?;
 
             let (resolution, resolution_video_upload_state) = match resolution_column {
                 video::Column::State144p => (144, video.state_144p.clone()),
@@ -132,8 +139,8 @@ pub mod uuid {
             }
 
             if !is_cached {
-                find_video(
-                    params.uuid,
+                find_video_by_resolution(
+                    &params.uuid,
                     resolution_column,
                     VideoUploadState::Available,
                     &data,
@@ -203,8 +210,8 @@ pub mod uuid {
                     }
 
                     if !is_cached {
-                        find_video(
-                            params.uuid,
+                        find_video_by_resolution(
+                            &params.uuid,
                             resolution_column,
                             VideoUploadState::Available,
                             &data,
@@ -366,17 +373,7 @@ pub mod uuid {
                             timestamp
                         }
                         Ok(Err(_)) | Err(_) => {
-                            let video = video::Entity::find_by_id(params.uuid)
-                                .one(&data.db_connection)
-                                .await
-                                .map_err(|_| {
-                                    ErrorInternalServerError(
-                                        "Unable to find a video with this resolution",
-                                    )
-                                })?
-                                .ok_or_else(|| {
-                                    ErrorNotFound("Unable to find a video with this resolution")
-                                })?;
+                            let video = find_video(&params.uuid, &data).await?;
                             let last_frame_timestamp =
                                 (video.duration.to_owned() * 1_000_000.0) as u64 * 1_000;
 

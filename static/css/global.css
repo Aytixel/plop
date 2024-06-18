@@ -143,7 +143,7 @@ textarea {
     transition-delay: 0s;
 }
 
-:is(.button, button, input, textarea):focus-visible {
+:is(.button, button, input, textarea):is(:focus-visible, .active) {
     border-color: var(--hover-bg-color);
 
     background-color: var(--hover-bg-color);
@@ -174,4 +174,32 @@ textarea {
 
 :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon :is(svg, img) {
     margin: 0;
+}
+
+input[type="checkbox"] {
+    margin: .5em;
+
+    padding: 0;
+
+    --padding: 0em;
+    --inner-size: 1.5em;
+}
+
+input[type="checkbox"]:checked::before {
+    display: block;
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+
+    width: 1em;
+    height: .5em;
+
+    content: "";
+
+    border: solid .2em rgb(var(--color-dark));
+    border-top: none;
+    border-right: none;
+
+    transform: translate(-50%, -50%) rotate(-45deg) scale(.75);
 }

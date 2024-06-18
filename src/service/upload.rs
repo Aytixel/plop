@@ -1,7 +1,11 @@
-use std::{collections::HashSet, io::SeekFrom};
+use std::{
+    collections::{HashMap, HashSet},
+    io::SeekFrom,
+};
 
 use ::uuid::Uuid;
 use actix_web::{
+    delete,
     error::ErrorInternalServerError,
     get,
     http::header,
@@ -17,7 +21,8 @@ use fred::{
     types::{Expiration, RedisValue},
 };
 use sea_orm::{
-    ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
+    Set,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -31,7 +36,9 @@ use validator::{Validate, ValidationError};
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
     get_authentication_data,
-    service::video::uuid::resolution::{find_video, get_resolution, VIDEO_REDIS_TIMEOUT},
+    service::video::uuid::resolution::{
+        find_video, find_video_by_resolution, get_resolution, VIDEO_REDIS_TIMEOUT,
+    },
     AppState,
 };
 
@@ -200,6 +207,91 @@ async fn put(
     Ok(HttpResponse::Ok().body(uuid.to_string()))
 }
 
+#[derive(Deserialize, Validate, Debug)]
+struct DeleteVideo {
+    uuids: Vec<Uuid>,
+}
+
+async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Result<()> {
+    let video = find_video(uuid, &data).await?;
+    let mut resolutions = Vec::new();
+
+    if video.state_144p != VideoUploadState::Unavailable {
+        resolutions.push(144);
+    }
+    if video.state_240p != VideoUploadState::Unavailable {
+        resolutions.push(240);
+    }
+    if video.state_360p != VideoUploadState::Unavailable {
+        resolutions.push(360);
+    }
+    if video.state_480p != VideoUploadState::Unavailable {
+        resolutions.push(480);
+    }
+    if video.state_720p != VideoUploadState::Unavailable {
+        resolutions.push(720);
+    }
+    if video.state_1080p != VideoUploadState::Unavailable {
+        resolutions.push(1080);
+    }
+    if video.state_1440p != VideoUploadState::Unavailable {
+        resolutions.push(1440);
+    }
+
+    remove_file(format!("./thumbnail/{uuid}.webp"))
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable delete the thumbnail"))?;
+
+    for resolution in &resolutions {
+        remove_file(format!("./video/{resolution}/{uuid}.webm"))
+            .await
+            .map_err(|_| {
+                ErrorInternalServerError(format!(
+                    "Unable delete the video file for the {resolution}p resolution"
+                ))
+            })?;
+    }
+
+    data.redis_client
+        .del::<(), Vec<String>>(
+            resolutions
+                .iter()
+                .map(|resolution| format!("video:{uuid}:{resolution}"))
+                .collect::<Vec<String>>(),
+        )
+        .await
+        .ok();
+    video
+        .delete(&data.db_connection)
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable delete the video from the database"))?;
+
+    Ok(())
+}
+
+#[delete("/upload")]
+async fn delete(
+    payload: Json<DeleteVideo>,
+    data: Data<AppState<'_>>,
+) -> actix_web::Result<impl Responder> {
+    let mut uuids = Vec::new();
+    let mut errors = HashMap::new();
+
+    for uuid in &payload.uuids {
+        match delete_video(uuid, &data).await {
+            Ok(_) => uuids.push(uuid),
+            Err(error) => {
+                errors.insert(uuid, error.to_string());
+            }
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(json!({
+        "uuids": uuids,
+        "errors": errors,
+    })))
+}
+
 pub mod uuid {
     use super::*;
 
@@ -226,8 +318,8 @@ pub mod uuid {
             };
 
             let resolution_column = get_resolution(params.resolution)?;
-            let mut video = find_video(
-                params.uuid,
+            let mut video = find_video_by_resolution(
+                &params.uuid,
                 resolution_column,
                 VideoUploadState::Uploading,
                 &data,
