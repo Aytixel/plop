@@ -78,13 +78,15 @@ input,
 textarea {
     --bg-color: rgb(var(--color-dark) / .05);
     --hover-bg-color: rgb(var(--color-dark) / .1);
-    --padding: .5em;
+    --padding-block: .5em;
+    --padding-inline: 1em;
     --inner-size: 1.5em;
-    --outer-size: calc(var(--inner-size) + var(--padding) * 2);
+    --outer-size: calc(var(--inner-size) + var(--padding-block) * 2);
+    --icon-margin: .75em;
 
     display: inline-block;
 
-    padding: var(--padding) 1em;
+    padding: var(--padding-block) var(--padding-inline);
 
     min-width: var(--outer-size);
     min-height: var(--outer-size);
@@ -115,27 +117,27 @@ textarea {
     height: auto;
 }
 
-:is(.button, button, input, textarea).rounded {
-    padding-inline: 1.5em;
+:where(.button, button, input, textarea).rounded {
+    --padding-inline: 1.5em;
 
     border-radius: calc(var(--outer-size) / 2);
 }
 
-:is(.button, button, input, textarea).inverted {
+:where(.button, button, input, textarea).inverted {
     --bg-color: #0000;
     --hover-bg-color: rgb(var(--color-dark) / .1);
 
     border-color: var(--bg-color);
 }
 
-:is(.button, button, input, textarea).important {
+:where(.button, button, input, textarea).important {
     --bg-color: rgb(var(--color-dark) / .95);
     --hover-bg-color: rgb(var(--color-dark) / 1);
 
     color: rgb(var(--color-light));
 }
 
-:is(.button, button, input, textarea):hover {
+:where(.button, button, input, textarea):hover {
     border-color: var(--hover-bg-color);
 
     background-color: var(--hover-bg-color);
@@ -143,7 +145,7 @@ textarea {
     transition-delay: 0s;
 }
 
-:is(.button, button, input, textarea):is(:focus-visible, .active) {
+:where(.button, button, input, textarea):is(:focus-visible, .active) {
     border-color: var(--hover-bg-color);
 
     background-color: var(--hover-bg-color);
@@ -151,12 +153,12 @@ textarea {
     transition-delay: 0s;
 }
 
-:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon {
-    padding: var(--padding);
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]):is(.icon, .collapse) {
+    padding: var(--padding-block);
 }
 
 :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]):has(:is(svg, img)) {
-    padding-left: var(--padding) !important;
+    padding-left: var(--padding-block) !important;
 }
 
 :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]) :is(svg, img) {
@@ -167,13 +169,31 @@ textarea {
     height: var(--inner-size);
     width: var(--inner-size);
 
-    margin-right: .75em;
+    margin-right: var(--icon-margin);
 
     padding: .1em;
 }
 
-:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).icon :is(svg, img) {
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]):is(.icon, .collapse) :is(svg, img) {
     margin: 0;
+}
+
+:is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).collapse span {
+    display: none;
+}
+
+@media (min-width: 600px) {
+    :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).collapse {
+        padding: var(--padding-block) var(--padding-inline);
+    }
+
+    :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).collapse :is(svg, img) {
+        margin-right: var(--icon-margin);
+    }
+
+    :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).collapse span {
+        display: inline;
+    }
 }
 
 input[type="checkbox"] {
@@ -181,7 +201,7 @@ input[type="checkbox"] {
 
     padding: 0;
 
-    --padding: 0em;
+    --padding-block: 0em;
     --inner-size: 1.5em;
 }
 
