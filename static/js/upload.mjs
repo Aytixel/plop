@@ -147,6 +147,8 @@ video_upload_form_element.addEventListener("submit", async e => {
 
     video_list_item_element.classList.add("button", "border")
     video_list_item_element.tabIndex = 0
+    video_list_item_element.ariaLabel = form_data.get("title")
+    video_list_item_element.dataset.uuid = video_uuid
     video_list_item_element_add_event(video_list_item_element)
     video_list_element.prepend(video_list_item_element)
 
