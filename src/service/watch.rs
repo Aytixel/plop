@@ -18,6 +18,8 @@ use crate::{
 };
 
 pub mod uuid {
+    use crate::service::video::get_resolutions;
+
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]
@@ -35,30 +37,8 @@ pub mod uuid {
             .await
             .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
             .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
-        let mut resolutions = Vec::new();
-
-        if video.state_144p == VideoUploadState::Available {
-            resolutions.push(144);
-        }
-        if video.state_240p == VideoUploadState::Available {
-            resolutions.push(240);
-        }
-        if video.state_360p == VideoUploadState::Available {
-            resolutions.push(360);
-        }
-        if video.state_480p == VideoUploadState::Available {
-            resolutions.push(480);
-        }
-        if video.state_720p == VideoUploadState::Available {
-            resolutions.push(720);
-        }
-        if video.state_1080p == VideoUploadState::Available {
-            resolutions.push(1080);
-        }
-        if video.state_1440p == VideoUploadState::Available {
-            resolutions.push(1440);
-        }
-
+        let resolutions =
+            get_resolutions(&video, VideoUploadState::eq, VideoUploadState::Available);
         let mut lengths = Vec::new();
         let mut bitrates = Vec::new();
 

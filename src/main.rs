@@ -24,10 +24,11 @@ use gorse_rs::Gorse;
 use handlebars::{
     Context, DirectorySourceOptions, Handlebars, Helper, HelperResult, Output, RenderContext,
 };
-use meilisearch_sdk::client::Client;
+use meilisearch_sdk::{client::Client, indexes::Index};
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 use sea_orm::{Database, DatabaseConnection};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 pub trait AnyhowResult<T>: Sized {
     fn anyhow(self) -> anyhow::Result<T>;
@@ -42,11 +43,19 @@ where
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MeilliDocument {
+    id: String,
+    #[serde(flatten)]
+    value: serde_json::Value,
+}
+
 pub struct AppState<'a> {
     db_connection: DatabaseConnection,
     redis_client: RedisClient,
     gorse_client: Gorse,
     meillisearch_client: Client,
+    video_index: Index,
     handlebars: Handlebars<'a>,
     clerk: Clerk,
 }
@@ -138,6 +147,7 @@ async fn main() -> anyhow::Result<()> {
         db_connection,
         redis_client,
         gorse_client,
+        video_index: meillisearch_client.index("video"),
         meillisearch_client,
         handlebars,
         clerk,

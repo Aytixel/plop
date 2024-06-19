@@ -37,12 +37,12 @@ use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
     get_authentication_data,
     service::video::uuid::resolution::{
-        find_video, find_video_by_resolution, get_resolution, VIDEO_REDIS_TIMEOUT,
+        find_video, find_video_by_resolution, resolution_to_column, VIDEO_REDIS_TIMEOUT,
     },
-    AppState,
+    AppState, MeilliDocument,
 };
 
-use super::video::valid_resolution;
+use super::video::{get_resolutions, valid_resolution};
 
 #[get("/upload")]
 async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
@@ -214,29 +214,7 @@ struct DeleteVideo {
 
 async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Result<()> {
     let video = find_video(uuid, &data).await?;
-    let mut resolutions = Vec::new();
-
-    if video.state_144p != VideoUploadState::Unavailable {
-        resolutions.push(144);
-    }
-    if video.state_240p != VideoUploadState::Unavailable {
-        resolutions.push(240);
-    }
-    if video.state_360p != VideoUploadState::Unavailable {
-        resolutions.push(360);
-    }
-    if video.state_480p != VideoUploadState::Unavailable {
-        resolutions.push(480);
-    }
-    if video.state_720p != VideoUploadState::Unavailable {
-        resolutions.push(720);
-    }
-    if video.state_1080p != VideoUploadState::Unavailable {
-        resolutions.push(1080);
-    }
-    if video.state_1440p != VideoUploadState::Unavailable {
-        resolutions.push(1440);
-    }
+    let resolutions = get_resolutions(&video, VideoUploadState::ne, VideoUploadState::Unavailable);
 
     remove_file(format!("./thumbnail/{uuid}.webp"))
         .await
@@ -286,6 +264,14 @@ async fn delete(
         }
     }
 
+    data.video_index
+        .delete_documents(&payload.uuids)
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable to remove videos from the search base"))?
+        .wait_for_completion(&data.meillisearch_client, None, None)
+        .await
+        .map_err(|_| ErrorInternalServerError("Unable to remove videos from the search base"))?;
+
     Ok(HttpResponse::Ok().json(json!({
         "uuids": uuids,
         "errors": errors,
@@ -296,6 +282,8 @@ pub mod uuid {
     use super::*;
 
     pub mod resolution {
+        use video::ActiveModel;
+
         use super::*;
 
         #[derive(Deserialize, Validate, Debug)]
@@ -317,8 +305,8 @@ pub mod uuid {
                 return Ok(HttpResponse::Unauthorized().body("User not logged in"));
             };
 
-            let resolution_column = get_resolution(params.resolution)?;
-            let mut video = find_video_by_resolution(
+            let resolution_column = resolution_to_column(params.resolution)?;
+            let video = find_video_by_resolution(
                 &params.uuid,
                 resolution_column,
                 VideoUploadState::Uploading,
@@ -326,7 +314,7 @@ pub mod uuid {
             )
             .await?;
 
-            if *video.user_id.as_ref() != jwt.sub {
+            if video.user_id != jwt.sub {
                 return Ok(
                     HttpResponse::Forbidden().body("You cannot upload in place of another user")
                 );
@@ -376,6 +364,31 @@ pub mod uuid {
                 let video_upload_state = if video_file_format.media_type() == "video/webm"
                     || video_file_format.media_type() == "application/x-ebml"
                 {
+                    data.video_index
+                        .add_documents(
+                            &vec![MeilliDocument {
+                                id: video.uuid.to_string(),
+                                value: json!({
+                                    "title": video.title,
+                                    "description": video.description,
+                                    "tags": video.tags,
+                                    "duration": video.duration,
+                                    "timestamp": video.timestamp,
+                                    "user_id": video.user_id,
+                                }),
+                            }],
+                            Some("id"),
+                        )
+                        .await
+                        .map_err(|_| {
+                            ErrorInternalServerError("Unable to add video to the search base")
+                        })?
+                        .wait_for_completion(&data.meillisearch_client, None, None)
+                        .await
+                        .map_err(|_| {
+                            ErrorInternalServerError("Unable to add video to the search base")
+                        })?;
+
                     VideoUploadState::Available
                 } else {
                     remove_file(&path).await.ok();
@@ -393,6 +406,9 @@ pub mod uuid {
                     )
                     .await
                     .ok();
+
+                let mut video = ActiveModel::from(video);
+
                 video.set(resolution_column, video_upload_state.into());
                 video
                     .update(&data.db_connection)

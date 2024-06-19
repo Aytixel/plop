@@ -21,9 +21,44 @@ use validator::{Validate, ValidationError};
 use webm::mux::{AudioCodecId, Segment, VideoCodecId, Writer};
 
 use crate::{
-    entity::{sea_orm_active_enums::VideoUploadState, video},
+    entity::{
+        sea_orm_active_enums::VideoUploadState,
+        video::{self, Model},
+    },
     AppState,
 };
+
+pub fn get_resolutions<T: Fn(&VideoUploadState, &VideoUploadState) -> bool>(
+    video: &Model,
+    op: T,
+    state: VideoUploadState,
+) -> Vec<i32> {
+    let mut resolutions = Vec::new();
+
+    if op(&video.state_144p, &state) {
+        resolutions.push(144);
+    }
+    if op(&video.state_240p, &state) {
+        resolutions.push(240);
+    }
+    if op(&video.state_360p, &state) {
+        resolutions.push(360);
+    }
+    if op(&video.state_480p, &state) {
+        resolutions.push(480);
+    }
+    if op(&video.state_720p, &state) {
+        resolutions.push(720);
+    }
+    if op(&video.state_1080p, &state) {
+        resolutions.push(1080);
+    }
+    if op(&video.state_1440p, &state) {
+        resolutions.push(1440);
+    }
+
+    resolutions
+}
 
 pub fn valid_resolution(resolution: u16) -> Result<(), ValidationError> {
     let resolutions = vec![144, 240, 360, 480, 720, 1080, 1440];
@@ -41,7 +76,7 @@ pub mod uuid {
     pub mod resolution {
         use super::*;
 
-        pub fn get_resolution(resolution: u16) -> actix_web::Result<video::Column> {
+        pub fn resolution_to_column(resolution: u16) -> actix_web::Result<video::Column> {
             match resolution {
                 144 => Ok(video::Column::State144p),
                 240 => Ok(video::Column::State240p),
@@ -74,17 +109,17 @@ pub mod uuid {
             resolution_column: video::Column,
             video_upload_state: VideoUploadState,
             data: &Data<AppState<'_>>,
-        ) -> actix_web::Result<video::ActiveModel> {
+        ) -> actix_web::Result<video::Model> {
             let video = find_video(uuid, data).await?;
 
             let (resolution, resolution_video_upload_state) = match resolution_column {
-                video::Column::State144p => (144, video.state_144p.clone()),
-                video::Column::State240p => (240, video.state_240p.clone()),
-                video::Column::State360p => (360, video.state_360p.clone()),
-                video::Column::State480p => (480, video.state_480p.clone()),
-                video::Column::State720p => (720, video.state_720p.clone()),
-                video::Column::State1080p => (1080, video.state_1080p.clone()),
-                video::Column::State1440p => (1440, video.state_1440p.clone()),
+                video::Column::State144p => (144, &video.state_144p),
+                video::Column::State240p => (240, &video.state_240p),
+                video::Column::State360p => (360, &video.state_360p),
+                video::Column::State480p => (480, &video.state_480p),
+                video::Column::State720p => (720, &video.state_720p),
+                video::Column::State1080p => (1080, &video.state_1080p),
+                video::Column::State1440p => (1440, &video.state_1440p),
                 _ => unreachable!(),
             };
 
@@ -99,11 +134,11 @@ pub mod uuid {
                 .await
                 .ok();
 
-            if resolution_video_upload_state != video_upload_state {
+            if resolution_video_upload_state != &video_upload_state {
                 return Err(ErrorNotFound("Unable to find a video with this resolution"));
             }
 
-            Ok(video.into())
+            Ok(video)
         }
 
         #[derive(Deserialize, Validate, Debug)]
@@ -119,7 +154,7 @@ pub mod uuid {
             params: Path<GetVideo>,
             data: Data<AppState<'_>>,
         ) -> actix_web::Result<impl Responder> {
-            let resolution_column = get_resolution(params.resolution)?;
+            let resolution_column = resolution_to_column(params.resolution)?;
             let mut is_cached = false;
             let video_key = format!("video:{}:{}", params.uuid, params.resolution);
 
@@ -188,7 +223,7 @@ pub mod uuid {
                         ));
                     }
 
-                    let resolution_column = get_resolution(params.resolution)?;
+                    let resolution_column = resolution_to_column(params.resolution)?;
                     let mut is_cached = false;
                     let video_key = format!("video:{}:{}", params.uuid, params.resolution);
 
