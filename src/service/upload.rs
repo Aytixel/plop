@@ -31,18 +31,17 @@ use tokio::{
     io::{AsyncSeekExt, AsyncWriteExt},
 };
 use tokio_stream::StreamExt;
-use validator::{Validate, ValidationError};
+use validator::Validate;
 
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
     get_authentication_data,
-    service::video::uuid::resolution::{
-        find_video, find_video_by_resolution, resolution_to_column, VIDEO_REDIS_TIMEOUT,
+    util::video::{
+        find_video, find_video_by_resolution, get_resolutions, resolution_to_column,
+        valid_resolution, valid_resolutions, VIDEO_REDIS_TIMEOUT,
     },
     AppState, MeilliDocument,
 };
-
-use super::video::{get_resolutions, valid_resolution};
 
 #[get("/upload")]
 async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
@@ -112,14 +111,6 @@ async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<im
                 )
                 .unwrap(),
         ))
-}
-
-fn valid_resolutions(resolutions: &HashSet<u16>) -> Result<(), ValidationError> {
-    for resolution in resolutions {
-        valid_resolution(*resolution)?;
-    }
-
-    Ok(())
 }
 
 #[derive(Deserialize, Validate, Debug)]
@@ -213,7 +204,7 @@ struct DeleteVideo {
 }
 
 async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Result<()> {
-    let video = find_video(uuid, &data).await?;
+    let video = find_video(uuid, &data.db_connection).await?;
     let resolutions = get_resolutions(&video, VideoUploadState::ne, VideoUploadState::Unavailable);
 
     remove_file(format!("./thumbnail/{uuid}.webp"))
@@ -310,7 +301,8 @@ pub mod uuid {
                 &params.uuid,
                 resolution_column,
                 VideoUploadState::Uploading,
-                &data,
+                &data.db_connection,
+                &data.redis_client,
             )
             .await?;
 

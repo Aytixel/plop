@@ -14,12 +14,11 @@ use validator::Validate;
 
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
+    util::{channel::get_channel_info, video::get_resolutions},
     AppState,
 };
 
 pub mod uuid {
-    use crate::{service::video::get_resolutions, util::channel::get_channel_info};
-
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]

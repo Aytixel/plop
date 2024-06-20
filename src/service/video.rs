@@ -3,7 +3,7 @@ use std::{fs::File, io::Cursor};
 use ::uuid::Uuid;
 use actix_files::NamedFile;
 use actix_web::{
-    error::{ErrorInternalServerError, ErrorNotFound, ErrorRangeNotSatisfiable},
+    error::{ErrorInternalServerError, ErrorRangeNotSatisfiable},
     get,
     http::StatusCode,
     web::Data,
@@ -15,131 +15,21 @@ use fred::{
     types::{Expiration, RedisValue},
 };
 use matroska_demuxer::{Frame, MatroskaFile, TrackType};
-use sea_orm::{ActiveEnum, EntityTrait};
 use serde::Deserialize;
-use validator::{Validate, ValidationError};
+use validator::Validate;
+use webm::mux::Track;
 use webm::mux::{AudioCodecId, Segment, VideoCodecId, Writer};
 
 use crate::{
-    entity::{
-        sea_orm_active_enums::VideoUploadState,
-        video::{self, Model},
-    },
+    util::video::{get_resolution_availability, valid_resolution},
     AppState,
 };
-
-pub fn get_resolutions<T: Fn(&VideoUploadState, &VideoUploadState) -> bool>(
-    video: &Model,
-    op: T,
-    state: VideoUploadState,
-) -> Vec<i32> {
-    let mut resolutions = Vec::new();
-
-    if op(&video.state_144p, &state) {
-        resolutions.push(144);
-    }
-    if op(&video.state_240p, &state) {
-        resolutions.push(240);
-    }
-    if op(&video.state_360p, &state) {
-        resolutions.push(360);
-    }
-    if op(&video.state_480p, &state) {
-        resolutions.push(480);
-    }
-    if op(&video.state_720p, &state) {
-        resolutions.push(720);
-    }
-    if op(&video.state_1080p, &state) {
-        resolutions.push(1080);
-    }
-    if op(&video.state_1440p, &state) {
-        resolutions.push(1440);
-    }
-
-    resolutions
-}
-
-pub fn valid_resolution(resolution: u16) -> Result<(), ValidationError> {
-    let resolutions = vec![144, 240, 360, 480, 720, 1080, 1440];
-
-    if resolutions.contains(&resolution) {
-        Ok(())
-    } else {
-        Err(ValidationError::new("Wrong resolution !"))
-    }
-}
 
 pub mod uuid {
     use super::*;
 
     pub mod resolution {
         use super::*;
-
-        pub fn resolution_to_column(resolution: u16) -> actix_web::Result<video::Column> {
-            match resolution {
-                144 => Ok(video::Column::State144p),
-                240 => Ok(video::Column::State240p),
-                360 => Ok(video::Column::State360p),
-                480 => Ok(video::Column::State480p),
-                720 => Ok(video::Column::State720p),
-                1080 => Ok(video::Column::State1080p),
-                1440 => Ok(video::Column::State1440p),
-                _ => unreachable!(),
-            }
-        }
-
-        pub const VIDEO_REDIS_TIMEOUT: i64 = 3600;
-
-        pub async fn find_video(
-            uuid: &Uuid,
-            data: &Data<AppState<'_>>,
-        ) -> actix_web::Result<video::Model> {
-            video::Entity::find_by_id(uuid.clone())
-                .one(&data.db_connection)
-                .await
-                .map_err(|_| {
-                    ErrorInternalServerError("Unable to find a video with this resolution")
-                })?
-                .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))
-        }
-
-        pub async fn find_video_by_resolution(
-            uuid: &Uuid,
-            resolution_column: video::Column,
-            video_upload_state: VideoUploadState,
-            data: &Data<AppState<'_>>,
-        ) -> actix_web::Result<video::Model> {
-            let video = find_video(uuid, data).await?;
-
-            let (resolution, resolution_video_upload_state) = match resolution_column {
-                video::Column::State144p => (144, &video.state_144p),
-                video::Column::State240p => (240, &video.state_240p),
-                video::Column::State360p => (360, &video.state_360p),
-                video::Column::State480p => (480, &video.state_480p),
-                video::Column::State720p => (720, &video.state_720p),
-                video::Column::State1080p => (1080, &video.state_1080p),
-                video::Column::State1440p => (1440, &video.state_1440p),
-                _ => unreachable!(),
-            };
-
-            data.redis_client
-                .set::<RedisValue, _, _>(
-                    format!("video:{}:{}", uuid, resolution),
-                    resolution_video_upload_state.to_value().to_string(),
-                    Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
-                    None,
-                    false,
-                )
-                .await
-                .ok();
-
-            if resolution_video_upload_state != &video_upload_state {
-                return Err(ErrorNotFound("Unable to find a video with this resolution"));
-            }
-
-            Ok(video)
-        }
 
         #[derive(Deserialize, Validate, Debug)]
         struct GetVideo {
@@ -154,34 +44,13 @@ pub mod uuid {
             params: Path<GetVideo>,
             data: Data<AppState<'_>>,
         ) -> actix_web::Result<impl Responder> {
-            let resolution_column = resolution_to_column(params.resolution)?;
-            let mut is_cached = false;
-            let video_key = format!("video:{}:{}", params.uuid, params.resolution);
-
-            if let Ok(availability) = data.redis_client.get::<String, _>(&video_key).await {
-                if availability != "nil" {
-                    is_cached = true;
-
-                    data.redis_client
-                        .expire::<RedisValue, _>(video_key, VIDEO_REDIS_TIMEOUT)
-                        .await
-                        .ok();
-
-                    if availability != VideoUploadState::Available.to_value().to_string() {
-                        return Err(ErrorNotFound("Unable to find a video with this resolution"));
-                    }
-                }
-            }
-
-            if !is_cached {
-                find_video_by_resolution(
-                    &params.uuid,
-                    resolution_column,
-                    VideoUploadState::Available,
-                    &data,
-                )
-                .await?;
-            }
+            get_resolution_availability(
+                &params.uuid,
+                params.resolution,
+                &data.db_connection,
+                &data.redis_client,
+            )
+            .await?;
 
             Ok(NamedFile::open(format!(
                 "./video/{}/{}.webm",
@@ -198,7 +67,7 @@ pub mod uuid {
             use super::*;
 
             pub mod end_timestamp {
-                use webm::mux::Track;
+                use crate::util::video::{find_video, VIDEO_REDIS_TIMEOUT};
 
                 use super::*;
 
@@ -223,36 +92,13 @@ pub mod uuid {
                         ));
                     }
 
-                    let resolution_column = resolution_to_column(params.resolution)?;
-                    let mut is_cached = false;
-                    let video_key = format!("video:{}:{}", params.uuid, params.resolution);
-
-                    if let Ok(availability) = data.redis_client.get::<String, _>(&video_key).await {
-                        if availability != "nil" {
-                            is_cached = true;
-
-                            data.redis_client
-                                .expire::<RedisValue, _>(video_key, VIDEO_REDIS_TIMEOUT)
-                                .await
-                                .ok();
-
-                            if availability != VideoUploadState::Available.to_value().to_string() {
-                                return Err(ErrorNotFound(
-                                    "Unable to find a video with this resolution",
-                                ));
-                            }
-                        }
-                    }
-
-                    if !is_cached {
-                        find_video_by_resolution(
-                            &params.uuid,
-                            resolution_column,
-                            VideoUploadState::Available,
-                            &data,
-                        )
-                        .await?;
-                    }
+                    get_resolution_availability(
+                        &params.uuid,
+                        params.resolution,
+                        &data.db_connection,
+                        &data.redis_client,
+                    )
+                    .await?;
 
                     let mut buffer = Vec::new();
                     let writer = Writer::new(Cursor::new(&mut buffer));
@@ -408,7 +254,7 @@ pub mod uuid {
                             timestamp
                         }
                         Ok(Err(_)) | Err(_) => {
-                            let video = find_video(&params.uuid, &data).await?;
+                            let video = find_video(&params.uuid, &data.db_connection).await?;
                             let last_frame_timestamp =
                                 (video.duration.to_owned() * 1_000_000.0) as u64 * 1_000;
 
