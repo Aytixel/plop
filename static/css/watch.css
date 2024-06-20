@@ -49,6 +49,27 @@ video-player {
     text-wrap: nowrap;
 }
 
+#video_info_channel {
+    display: flex;
+    gap: .75em;
+
+    margin-top: 1em;
+
+    color: rgb(var(--color-dark));
+}
+
+#video_info_channel img {
+    width: 3em;
+    height: 3em;
+
+    border-radius: 1.5em;
+}
+
+#video_info_channel>div {
+    display: flex;
+    align-items: center;
+}
+
 #video_info_description {
     margin-top: 1em;
 

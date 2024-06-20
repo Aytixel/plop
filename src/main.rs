@@ -1,5 +1,6 @@
 mod entity;
 mod service;
+mod util;
 
 use std::{env, fs::File, io::BufReader};
 
@@ -43,7 +44,7 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct MeilliDocument {
     id: String,
     #[serde(flatten)]

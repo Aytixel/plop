@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub mod uuid {
-    use crate::service::video::get_resolutions;
+    use crate::{service::video::get_resolutions, util::channel::get_channel_info};
 
     use super::*;
 
@@ -37,6 +37,8 @@ pub mod uuid {
             .await
             .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
             .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
+        let channel_info =
+            get_channel_info(&video.user_id, &data.clerk, &data.redis_client).await?;
         let resolutions =
             get_resolutions(&video, VideoUploadState::eq, VideoUploadState::Available);
         let mut lengths = Vec::new();
@@ -85,6 +87,8 @@ pub mod uuid {
                                 "bitrates": bitrates,
                                 "has_audio": video.has_audio,
                                 "vues": video.vues,
+                                "channel_username": channel_info.username,
+                                "channel_profil_picture": channel_info.profil_picture,
                             }),
                         )
                         .unwrap(),
