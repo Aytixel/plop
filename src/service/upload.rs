@@ -366,12 +366,13 @@ pub mod uuid {
                 {
                     data.video_index
                         .add_documents(
-                            &vec![MeilliDocument {
+                            &[MeilliDocument {
                                 id: video.uuid.to_string(),
                                 value: json!({
                                     "title": video.title,
                                     "description": video.description,
                                     "tags": video.tags,
+                                    "vues": video.vues,
                                     "duration": video.duration,
                                     "timestamp": video.timestamp,
                                     "user_id": video.user_id,
