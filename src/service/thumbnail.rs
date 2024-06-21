@@ -23,6 +23,6 @@ pub mod uuid {
             .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
             .into_response(&request)
             .customize()
-            .insert_header(("Cache-Control", "max-age=2592000")))
+            .insert_header(("Cache-Control", "max-age=31536000")))
     }
 }

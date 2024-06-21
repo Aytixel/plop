@@ -163,7 +163,7 @@ async fn main() -> anyhow::Result<()> {
             .wrap(Analytics::new(analytics_api_key.clone()))
             .wrap(cors)
             .wrap(middleware::Compress::default())
-            .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=2592000")))
+            .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=31536000")))
             .wrap(middleware::NormalizePath::trim())
             .service(service::index::get)
             .service(service::results::get)
