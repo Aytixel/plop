@@ -13,6 +13,8 @@ class VideoPreviewElement extends HTMLElement {
 
         style.textContent += /*css*/`
             :host {
+                display: inline-block;
+
                 aspect-ratio: 16/9;
             }
 
@@ -20,6 +22,9 @@ class VideoPreviewElement extends HTMLElement {
                 display: inline-grid;
 
                 aspect-ratio: 16/9;
+
+                width: 100%;
+                height: 100%;
 
                 border: solid .1em rgb(var(--color-dark) / .1);
                 border-radius: .5em;

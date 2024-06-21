@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr-FR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00ffff">
+    <meta name="author" content="Aytixel">
+    <meta name="description" content="Retrouver ici toutes les dernières vidéos qui viennent juste de plopper.">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <title>{{search}} - Plop</title>
+    <link rel="preload stylesheet" as="style" type="text/css" href="/css/results.css">
+    <script src="https://unpkg.com/mol_time_all@1.1/web.js"></script>
+    <script src="https://unpkg.com/javascript-time-ago@2.5/bundle/javascript-time-ago.js"></script>
+    {{clerk-script}}
+    <script src="/js/results.mjs" type="module"></script>
+</head>
+
+<body>
+    {{> nav-bar}}
+    <main>
+        <div id="main_container">
+            <ul id="video_list">
+                {{#each results as |video|}}
+                <li tabindex="0" aria-label="{{video.title}}">
+                    <video-preview data-uuid="{{video.id}}" data-duration="{{video.duration}}"></video-preview>
+                    <span class="info">
+                        <a href="/watch/{{video.id}}" class="head">
+                            <h2>{{video.title}}</h2>
+                            <strong class="vues_time"><span class="vues" data-vues="{{video.vues}}"></span> • <time
+                                    class="time" datetime="{{video.timestamp}}"></time></strong>
+                        </a>
+                        <a class="channel" href="#">
+                            <img src="{{video.channel_info.profil_picture}}" alt="Photo de profile de la chaine"
+                                width="40" height="40">
+                            <h3>{{video.channel_info.username}}</h3>
+                        </a>
+                        <a href="/watch/{{video.id}}">
+                            <p>{{video.description}}</p>
+                        </a>
+                    </span>
+                </li>
+                {{/each}}
+            </ul>
+        </div>
+    </main>
+    <footer></footer>
+</body>
+
+</html>

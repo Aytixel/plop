@@ -16,6 +16,7 @@
     font-size: inherit;
 
     text-wrap: pretty;
+    text-rendering: optimizeLegibility;
 }
 
 body {
@@ -39,6 +40,8 @@ footer {
 }
 
 a {
+    display: inline-block;
+
     text-decoration: none;
 
     color: color-mix(in srgb, rgb(var(--color-primary)) 75%, rgb(var(--color-dark)));

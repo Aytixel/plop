@@ -171,8 +171,8 @@
 </script>
 
 <nav id="nav-bar">
-    <a class="button rounded inverted collapse" href="/" aria-label="Accueil" width="24" height="24">
-        <img src="/android-chrome-192x192.png" alt="Logo">
+    <a class="button rounded inverted collapse" href="/" aria-label="Accueil">
+        <img src="/android-chrome-192x192.png" alt="Logo" width="24" height="24">
         <span>Plop</span>
     </a>
     <label for="nav-bar-search" class="button rounded icon inverted">
@@ -183,7 +183,7 @@
         </svg>
     </label>
     <form method="get" action="/results">
-        <input id="nav-bar-search" type="search" name="q" class="rounded" placeholder="Rechercher">
+        <input id="nav-bar-search" type="search" name="q" class="rounded" placeholder="Rechercher" value="{{search}}">
         <button type="submit" class="rounded icon" aria-label="Rechercher">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                 <path

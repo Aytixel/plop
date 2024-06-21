@@ -1,0 +1,101 @@
+@import "global.css";
+
+/*
+
+    Main Container
+
+*/
+#main_container {
+    margin: 0 auto;
+
+    --main-width: calc(max(min(80em, 100vw), 280px) - 2rem);
+
+    width: var(--main-width);
+}
+
+/*
+
+    Video List
+
+*/
+#video_list {
+    display: flex;
+    gap: 2em;
+    flex-direction: column;
+
+    container: video_list / inline-size;
+}
+
+#video_list li {
+    --preview-width: 100%;
+
+    display: flex;
+    flex-direction: column;
+}
+
+#video_list video-preview {
+    width: var(--preview-width);
+    height: calc(var(--preview-width) * 9 / 16);
+}
+
+#video_list .info {
+    display: flex;
+    gap: .75em;
+    flex-direction: column;
+
+    padding: .5em 1em;
+
+    width: 100%;
+}
+
+#video_list .info a {
+    color: rgb(var(--color-dark));
+}
+
+#video_list h2 {
+    font-size: 1.15em;
+}
+
+#video_list :is(h2, p) {
+    width: 100%;
+
+    overflow: hidden;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#video_list :is(.vues_time, h3, p) {
+    font-size: .8em;
+}
+
+#video_list .channel {
+    display: flex;
+    gap: .5em;
+    align-items: center;
+}
+
+#video_list .channel img {
+    width: 2em;
+    height: 2em;
+
+    border-radius: 1em;
+}
+
+@container video_list (min-width: 480px) {
+    #video_list li {
+        --preview-width: 18em;
+
+        flex-direction: row;
+    }
+
+    #video_list .info {
+        width: calc(100% - var(--preview-width));
+    }
+}
+
+@container video_list (min-width: 800px) {
+    #video_list li {
+        --preview-width: 31em;
+    }
+}
