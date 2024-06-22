@@ -104,7 +104,7 @@
     Video List
 
 */
-#video_list li {
+#video_list li>button {
     display: grid;
     align-items: center;
     grid-template-columns: auto 1fr;
@@ -116,6 +116,7 @@
     padding: .5em;
     padding-right: 1em;
 
+    width: calc(100% - 2em);
     height: auto;
 }
 

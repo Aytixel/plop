@@ -71,20 +71,22 @@
         </div>
         <ul id="video_list">
             {{#each videos as |video|}}
-            <li class="button border" tabindex="0" data-uuid="{{video.uuid}}" aria-label="{{video.title}}">
-                <video-preview data-uuid="{{video.uuid}}" data-duration="{{video.duration}}"></video-preview>
-                <div class="top">
-                    <span class="title">{{video.title}}</span><span class="vues">{{video.vues}}</span><time
-                        datetime="{{video.timestamp}}"></time>
-                </div>
-                <div class="bottom">
-                    {{#each resolutions as |resolution_|}}
-                    {{#with resolution_}}
-                    <span>{{resolution}}p {{#if (eq state "available")}}✅{{/if}}{{#if (eq state
-                        "unavailable")}}🚫{{/if}}{{#if (eq state "uploading")}}⚠️{{/if}}</span>
-                    {{/with}}
-                    {{/each}}
-                </div>
+            <li>
+                <button class="button" tabindex="0" data-uuid="{{video.uuid}}" aria-label="{{video.title}}">
+                    <video-preview data-uuid="{{video.uuid}}" data-duration="{{video.duration}}"></video-preview>
+                    <div class="top">
+                        <span class="title">{{video.title}}</span><span class="vues">{{video.vues}}</span><time
+                            datetime="{{video.timestamp}}"></time>
+                    </div>
+                    <div class="bottom">
+                        {{#each resolutions as |resolution_|}}
+                        {{#with resolution_}}
+                        <span>{{resolution}}p {{#if (eq state "available")}}✅{{/if}}{{#if (eq state
+                            "unavailable")}}🚫{{/if}}{{#if (eq state "uploading")}}⚠️{{/if}}</span>
+                        {{/with}}
+                        {{/each}}
+                    </div>
+                </button>
             </li>
             {{/each}}
         </ul>

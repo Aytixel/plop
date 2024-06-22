@@ -18,7 +18,7 @@ const video_list_element = document.getElementById("video_list")
 
 video_list_select_all_element.addEventListener("input", () => {
     for (const video_list_item_element of video_list_element.children) {
-        video_list_item_element.classList.toggle("active", video_list_select_all_element.checked)
+        video_list_item_element.children[0].classList.toggle("active", video_list_select_all_element.checked)
     }
 })
 
@@ -40,7 +40,7 @@ video_list_delete_element.addEventListener("click", async () => {
 function video_list_item_element_add_event(video_list_item_element) {
     video_list_item_element.addEventListener("click", () => {
         video_list_select_all_element.checked = false
-        video_list_item_element.classList.toggle("active")
+        video_list_item_element.children[0].classList.toggle("active")
     })
 }
 
@@ -144,24 +144,25 @@ video_upload_form_element.addEventListener("submit", async e => {
     const video_upload_progress = document.getElementById("video_upload_progress")
 
     const video_list_item_element = document.createElement("li")
+    const video_button_element = document.createElement("button")
 
-    video_list_item_element.classList.add("button", "border")
-    video_list_item_element.tabIndex = 0
-    video_list_item_element.ariaLabel = form_data.get("title")
-    video_list_item_element.dataset.uuid = video_uuid
+    video_button_element.classList.add("button", "border")
+    video_button_element.tabIndex = 0
+    video_button_element.ariaLabel = form_data.get("title")
+    video_button_element.dataset.uuid = video_uuid
     video_list_item_element_add_event(video_list_item_element)
-    video_list_element.prepend(video_list_item_element)
+    video_list_item_element.prepend(video_button_element)
 
     const video_preview_element = document.createElement("video-preview")
 
     video_preview_element.dataset.uuid = video_uuid
     video_preview_element.dataset.duration = video_element.duration
-    video_list_item_element.append(video_preview_element)
+    video_button_element.append(video_preview_element)
 
     const top_element = document.createElement("div")
 
     top_element.classList.add("top")
-    video_list_item_element.append(top_element)
+    video_button_element.append(top_element)
 
     const title_element = document.createElement("span")
 
@@ -184,7 +185,8 @@ video_upload_form_element.addEventListener("submit", async e => {
     const bottom_element = document.createElement("div")
 
     bottom_element.classList.add("bottom")
-    video_list_item_element.append(bottom_element)
+    video_button_element.append(bottom_element)
+    video_list_element.prepend(video_list_item_element)
 
     const resolution_elements = {}
 
