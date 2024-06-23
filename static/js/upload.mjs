@@ -23,11 +23,13 @@ video_list_select_all_element.addEventListener("input", () => {
 })
 
 video_list_delete_element.addEventListener("click", async () => {
-    const video_list = [...video_list_element.children].filter(video => video.classList.contains("active"))
+    const video_list = [...video_list_element.children].map(video => video.children[0]).filter(video => video.classList.contains("active"))
     const response = await fetch("/upload", {
         method: "DELETE",
         body: JSON.stringify({ uuids: video_list.map(video => video.dataset.uuid) })
     })
+
+    video_list_select_all_element.checked = false
 
     if (!response.ok)
         alert("Une erreur est survenue : action annuler.")
@@ -146,7 +148,6 @@ video_upload_form_element.addEventListener("submit", async e => {
     const video_list_item_element = document.createElement("li")
     const video_button_element = document.createElement("button")
 
-    video_button_element.classList.add("button", "border")
     video_button_element.tabIndex = 0
     video_button_element.ariaLabel = form_data.get("title")
     video_button_element.dataset.uuid = video_uuid

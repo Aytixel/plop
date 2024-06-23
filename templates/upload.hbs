@@ -72,7 +72,7 @@
         <ul id="video_list">
             {{#each videos as |video|}}
             <li>
-                <button class="button" tabindex="0" data-uuid="{{video.uuid}}" aria-label="{{video.title}}">
+                <button tabindex="0" data-uuid="{{video.uuid}}" aria-label="{{video.title}}">
                     <video-preview data-uuid="{{video.uuid}}" data-duration="{{video.duration}}"></video-preview>
                     <div class="top">
                         <span class="title">{{video.title}}</span><span class="vues">{{video.vues}}</span><time
