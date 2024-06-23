@@ -13,13 +13,40 @@
     <link rel="manifest" href="/site.webmanifest">
     <title>Plop</title>
     <link rel="preload stylesheet" as="style" type="text/css" href="/css/index.css">
+    <script src="https://unpkg.com/mol_time_all@1.1/web.js"></script>
+    <script src="https://unpkg.com/javascript-time-ago@2.5/bundle/javascript-time-ago.js"></script>
     {{clerk-script}}
+    <script src="/js/index.mjs" type="module"></script>
 </head>
 
 <body>
     {{> nav-bar}}
     <main>
-
+        <div id="video_list_container">
+            <div id="video_list">
+                {{#each videos as |video|}}
+                <div tabindex="0" aria-label="{{video.title}}">
+                    <video-preview data-uuid="{{video.uuid}}" data-duration="{{video.duration}}"></video-preview>
+                    <a class="channel_profil_picture" href="#">
+                        <img src="{{video.channel_info.profil_picture}}" alt="Photo de profile de la chaine" width="40"
+                            height="40" loading="lazy">
+                    </a>
+                    <div class="info">
+                        <a href="/watch/{{video.uuid}}" aria-label="{{video.title}}">
+                            <h2>{{video.title}}</h2>
+                        </a>
+                        <a class="channel_name" href="#">
+                            <h3>{{video.channel_info.username}}</h3>
+                        </a>
+                        <a href="/watch/{{video.uuid}}" aria-label="{{video.title}}">
+                            <strong class="vues_time"><span class="vues" data-vues="{{video.vues}}"></span> • <time
+                                    class="time" datetime="{{video.timestamp}}"></time></strong>
+                        </a>
+                    </div>
+                </div>
+                {{/each}}
+            </div>
+        </div>
     </main>
     <footer></footer>
 </body>

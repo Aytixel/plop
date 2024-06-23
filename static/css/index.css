@@ -1,1 +1,76 @@
 @import "global.css";
+
+/*
+
+    Video List
+
+*/
+#video_list_container {
+    --video-width: 20em;
+    --gap: 1em;
+
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr) [grid-start] repeat(auto-fit, minmax(0, var(--video-width))) [grid-end] minmax(0, 1fr);
+    gap: var(--gap);
+}
+
+#video_list {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column-start: grid-start;
+    grid-column-end: grid-end;
+    gap: var(--gap);
+}
+
+#video_list>div {
+    display: grid;
+    gap: .5em;
+    grid-template-columns: 2em auto;
+    grid-template-rows: auto auto;
+
+    max-width: calc(100vw - 2em);
+    width: var(--video-width);
+}
+
+#video_list video-preview {
+    grid-column: 1/3;
+
+    max-width: calc(100vw - 2em);
+    width: var(--video-width);
+    aspect-ratio: 16/9;
+}
+
+#video_list img {
+    width: 2em;
+    height: 2em;
+
+    border-radius: 1em;
+}
+
+#video_list .info {
+    display: flex;
+    flex-direction: column;
+
+    max-width: calc(100vw - 4.5em);
+    width: calc(var(--video-width) - 2.5em);
+}
+
+#video_list .info a {
+    color: rgb(var(--color-dark));
+}
+
+#video_list h2 {
+    margin-bottom: .25em;
+
+    width: 100%;
+
+    overflow: hidden;
+
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#video_list :is(.vues_time, h3) {
+    font-size: .8em;
+}

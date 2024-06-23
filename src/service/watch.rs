@@ -19,6 +19,14 @@ use crate::{
 };
 
 pub mod uuid {
+    use std::time::{Duration, SystemTime};
+
+    use actix_web::HttpRequest;
+    use chrono::{DateTime, Utc};
+    use gorse_rs::Feedback;
+
+    use crate::util::get_gorse_user_id;
+
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]
@@ -28,9 +36,24 @@ pub mod uuid {
 
     #[get("/watch/{uuid}")]
     async fn get(
+        req: HttpRequest,
         params: Path<GetWatch>,
         data: Data<AppState<'_>>,
     ) -> actix_web::Result<impl Responder> {
+        let user_id = get_gorse_user_id(&req, &data.clerk).await;
+        let recommendation_timestamp =
+            (DateTime::<Utc>::from(SystemTime::now()) + Duration::new(3600, 0)).to_rfc3339();
+
+        data.gorse_client
+            .insert_feedback(&vec![Feedback {
+                feedback_type: "open".to_string(),
+                user_id: user_id,
+                item_id: params.uuid.to_string(),
+                timestamp: recommendation_timestamp,
+            }])
+            .await
+            .ok();
+
         let video = video::Entity::find_by_id(params.uuid)
             .one(&data.db_connection)
             .await

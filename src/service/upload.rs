@@ -37,10 +37,12 @@ use video::ActiveModel;
 
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
-    get_authentication_data,
-    util::video::{
-        find_video, find_video_by_resolution, get_resolutions, resolution_to_column,
-        valid_resolution, valid_resolutions, VIDEO_REDIS_TIMEOUT,
+    util::{
+        get_authentication_data,
+        video::{
+            find_video, find_video_by_resolution, get_resolutions, resolution_to_column,
+            valid_resolution, valid_resolutions, VIDEO_REDIS_TIMEOUT,
+        },
     },
     AppState, MeilliDocument,
 };
