@@ -20,6 +20,7 @@ use fred::{
     interfaces::KeysInterface,
     types::{Expiration, RedisValue},
 };
+use gorse_rs::Item;
 use sea_orm::{
     ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
     Set,
@@ -32,6 +33,7 @@ use tokio::{
 };
 use tokio_stream::StreamExt;
 use validator::Validate;
+use video::ActiveModel;
 
 use crate::{
     entity::{sea_orm_active_enums::VideoUploadState, video},
@@ -240,6 +242,12 @@ async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Resu
         )
         .await
         .ok();
+    data.gorse_client
+        .delete_item(&uuid.to_string())
+        .await
+        .map_err(|_| {
+            ErrorInternalServerError("Unable to remove videos from the recommendation base")
+        })?;
     video
         .delete(&data.db_connection)
         .await
@@ -283,8 +291,6 @@ pub mod uuid {
     use super::*;
 
     pub mod resolution {
-        use video::ActiveModel;
-
         use super::*;
 
         #[derive(Deserialize, Validate, Debug)]
@@ -366,6 +372,10 @@ pub mod uuid {
                 let video_upload_state = if video_file_format.media_type() == "video/webm"
                     || video_file_format.media_type() == "application/x-ebml"
                 {
+                    let tags: Vec<String> = video.tags.clone().map_or(Vec::new(), |tags| {
+                        tags.split(",").map(str::to_string).collect()
+                    });
+
                     data.video_index
                         .add_documents(
                             &[MeilliDocument {
@@ -373,7 +383,7 @@ pub mod uuid {
                                 value: json!({
                                     "title": video.title,
                                     "description": video.description,
-                                    "tags": video.tags.clone().map_or(Vec::new(), |tags| tags.split(",").map(str::to_string).collect::<Vec<String>>()),
+                                    "tags": tags,
                                     "vues": video.vues,
                                     "duration": video.duration,
                                     "timestamp": video.timestamp,
@@ -390,6 +400,34 @@ pub mod uuid {
                         .await
                         .map_err(|_| {
                             ErrorInternalServerError("Unable to add video to the search base")
+                        })?;
+
+                    let mut labels: Vec<String> = tags
+                        .clone()
+                        .iter()
+                        .map(|tag| format!("tag:{tag}"))
+                        .collect();
+
+                    labels.extend_from_slice(&[
+                        format!("title:{}", video.title),
+                        format!("duration:{}", video.duration),
+                        format!("channel:{}", video.user_id),
+                    ]);
+
+                    data.gorse_client
+                        .insert_item(&Item {
+                            item_id: video.uuid.to_string(),
+                            is_hidden: false,
+                            labels: labels,
+                            categories: Vec::new(),
+                            timestamp: video.timestamp.to_string(),
+                            comment: video.description.clone().unwrap_or_default(),
+                        })
+                        .await
+                        .map_err(|_| {
+                            ErrorInternalServerError(
+                                "Unable to add video to the recommendation base",
+                            )
                         })?;
 
                     VideoUploadState::Available
