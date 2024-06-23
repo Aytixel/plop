@@ -22,30 +22,28 @@
 <body>
     {{> nav-bar}}
     <main>
-        <div id="main_container">
-            <ul id="video_list">
-                {{#each results as |video|}}
-                <li tabindex="0" aria-label="{{video.title}}">
-                    <video-preview data-uuid="{{video.id}}" data-duration="{{video.duration}}"></video-preview>
-                    <span class="info">
-                        <a href="/watch/{{video.id}}" class="head" aria-label="{{video.title}}">
-                            <h2>{{video.title}}</h2>
-                            <strong class="vues_time"><span class="vues" data-vues="{{video.vues}}"></span> • <time
-                                    class="time" datetime="{{video.timestamp}}"></time></strong>
-                        </a>
-                        <a class="channel" href="#">
-                            <img src="{{video.channel_info.profil_picture}}" alt="Photo de profile de la chaine"
-                                width="40" height="40" loading="lazy">
-                            <h3>{{video.channel_info.username}}</h3>
-                        </a>
-                        <a href="/watch/{{video.id}}" aria-label="{{video.title}}">
-                            <p>{{video.description}}</p>
-                        </a>
-                    </span>
-                </li>
-                {{/each}}
-            </ul>
-        </div>
+        <ul id="video_list">
+            {{#each results as |video|}}
+            <li tabindex="0" aria-label="{{video.title}}">
+                <video-preview data-uuid="{{video.id}}" data-duration="{{video.duration}}"></video-preview>
+                <span class="info">
+                    <a href="/watch/{{video.id}}" class="head" aria-label="{{video.title}}">
+                        <h2>{{video.title}}</h2>
+                        <strong class="vues_time"><span class="vues" data-vues="{{video.vues}}"></span> • <time
+                                class="time" datetime="{{video.timestamp}}"></time></strong>
+                    </a>
+                    <a class="channel" href="#">
+                        <img src="{{video.channel_info.profil_picture}}" alt="Photo de profile de la chaine" width="40"
+                            height="40" loading="lazy">
+                        <h3>{{video.channel_info.username}}</h3>
+                    </a>
+                    <a href="/watch/{{video.id}}" aria-label="{{video.title}}">
+                        <p>{{video.description}}</p>
+                    </a>
+                </span>
+            </li>
+            {{/each}}
+        </ul>
     </main>
     <footer></footer>
 </body>

@@ -2,19 +2,6 @@
 
 /*
 
-    Main Container
-
-*/
-#main_container {
-    margin: 0 auto;
-
-    --main-width: calc(max(min(80em, 100vw), 280px) - 2rem);
-
-    width: var(--main-width);
-}
-
-/*
-
     Video List
 
 */
@@ -22,6 +9,12 @@
     display: flex;
     gap: 2em;
     flex-direction: column;
+
+    margin: 0 auto;
+
+    --main-width: calc(max(min(80em, 100vw), 280px) - 2rem);
+
+    width: var(--main-width);
 
     container: video_list / inline-size;
 }
