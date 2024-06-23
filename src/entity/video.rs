@@ -8,14 +8,17 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub uuid: Uuid,
+    pub user_id: String,
     pub title: String,
     pub description: Option<String>,
-    #[sea_orm(column_type = "Double")]
-    pub duration: f64,
+    pub tags: Option<String>,
     pub timestamp: DateTime,
     pub vues: i64,
+    pub likes: i64,
+    #[sea_orm(column_type = "Double")]
+    pub duration: f64,
     pub framerate: i16,
-    pub tags: Option<String>,
+    pub has_audio: bool,
     pub state_144p: VideoUploadState,
     pub state_240p: VideoUploadState,
     pub state_360p: VideoUploadState,
@@ -23,8 +26,6 @@ pub struct Model {
     pub state_720p: VideoUploadState,
     pub state_1080p: VideoUploadState,
     pub state_1440p: VideoUploadState,
-    pub has_audio: bool,
-    pub user_id: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

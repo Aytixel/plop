@@ -385,6 +385,7 @@ pub mod uuid {
                                     "description": video.description,
                                     "tags": tags,
                                     "vues": video.vues,
+                                    "likes": video.likes,
                                     "duration": video.duration,
                                     "timestamp": video.timestamp,
                                     "user_id": video.user_id,

@@ -10,6 +10,7 @@ CREATE TABLE video (
     tags varchar(500),
     timestamp timestamp(6) NOT NULL DEFAULT now(),
     vues bigint NOT NULL DEFAULT 0,
+    likes bigint NOT NULL DEFAULT 0,
     duration double precision NOT NULL,
     framerate smallint NOT NULL,
     has_audio bool NOT NULL,
