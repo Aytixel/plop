@@ -54,6 +54,17 @@ pub mod uuid {
 
         const DEFAULT_META_DESCRIPTION: &str =
             "Apparemment pas de spoil par ici donc pas de description.";
+        let (tags, tags_short) = match video.tags.clone().map(|tags| {
+            let split = tags.split(",").map(str::to_string);
+
+            (
+                split.clone().collect::<Vec<String>>(),
+                split.take(3).collect::<Vec<String>>(),
+            )
+        }) {
+            Some((tags, tags_short)) => (Some(tags), Some(tags_short)),
+            None => (None, None),
+        };
 
         Ok(
             HttpResponse::Ok()
@@ -64,8 +75,8 @@ pub mod uuid {
                             "watch",
                             &json!({
                                 "title": video.title,
-                                "tags": video.tags.clone().map(|tags| tags.split(", ").map(str::to_string).collect::<Vec<String>>()),
-                                "tags_short": video.tags.map(|tags| tags.split(", ").take(3).map(str::to_string).collect::<Vec<String>>()),
+                                "tags": tags,
+                                "tags_short": tags_short,
                                 "description": video.description,
                                 "meta_description": video.description.map_or(DEFAULT_META_DESCRIPTION.to_string(), |mut description| {
                                     if description.is_empty() {

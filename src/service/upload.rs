@@ -166,7 +166,17 @@ async fn put(
         description: Set(payload.description.clone()),
         duration: Set(payload.duration),
         framerate: Set(payload.framerate as i16),
-        tags: Set(payload.tags.clone()),
+        tags: Set(payload.tags.clone().map(|tags| {
+            tags.split(&[',', ' '][..])
+                .filter_map(|tag| {
+                    let tag = tag.trim();
+
+                    (!str::is_empty(tag)).then(|| tag)
+                })
+                .map(str::to_string)
+                .collect::<Vec<String>>()
+                .join(",")
+        })),
         state_144p: Set(has_resolution(144)),
         state_240p: Set(has_resolution(240)),
         state_360p: Set(has_resolution(360)),
@@ -363,7 +373,7 @@ pub mod uuid {
                                 value: json!({
                                     "title": video.title,
                                     "description": video.description,
-                                    "tags": video.tags,
+                                    "tags": video.tags.clone().map_or(Vec::new(), |tags| tags.split(",").map(str::to_string).collect::<Vec<String>>()),
                                     "vues": video.vues,
                                     "duration": video.duration,
                                     "timestamp": video.timestamp,
