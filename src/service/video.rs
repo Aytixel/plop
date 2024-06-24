@@ -323,17 +323,17 @@ pub mod uuid {
                                     .await
                                     .ok();
                             }
-                        }
 
-                        if let Ok(Some(video)) = video::Entity::find_by_id(params.uuid)
-                            .one(&data.db_connection)
-                            .await
-                        {
-                            let views = video.views + 1;
-                            let mut video = video::ActiveModel::from(video);
+                            if let Ok(Some(video)) = video::Entity::find_by_id(params.uuid)
+                                .one(&data.db_connection)
+                                .await
+                            {
+                                let views = video.views + 1;
+                                let mut video = video::ActiveModel::from(video);
 
-                            video.set(video::Column::Views, views.into());
-                            video.update(&data.db_connection).await.ok();
+                                video.set(video::Column::Views, views.into());
+                                video.update(&data.db_connection).await.ok();
+                            }
                         }
 
                         data.redis_client
