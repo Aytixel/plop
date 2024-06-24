@@ -54,7 +54,8 @@ img {
 hr {
     margin: 2em 1em;
 
-    border: solid .1em rgb(var(--color-dark) / .1);
+    border: none;
+    border-top: solid .1em rgb(var(--color-dark) / .1);
 }
 
 p.banner {
