@@ -48,8 +48,8 @@ use crate::{
 };
 
 #[get("/upload")]
-async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
-    let Some(jwt) = get_authentication_data(&req, &data.clerk).await else {
+async fn get(request: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
+    let Some(jwt) = get_authentication_data(&request, &data.clerk).await else {
         return Ok(HttpResponse::TemporaryRedirect()
             .insert_header(("Location", "/"))
             .finish());
@@ -137,11 +137,11 @@ struct PutVideo {
 
 #[put("/upload")]
 async fn put(
-    req: HttpRequest,
+    request: HttpRequest,
     payload: Json<PutVideo>,
     data: Data<AppState<'_>>,
 ) -> actix_web::Result<impl Responder> {
-    let Some(jwt) = get_authentication_data(&req, &data.clerk).await else {
+    let Some(jwt) = get_authentication_data(&request, &data.clerk).await else {
         return Ok(HttpResponse::Unauthorized().body("User not logged in"));
     };
 
@@ -236,7 +236,7 @@ async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Resu
     }
 
     data.redis_client
-        .del::<(), Vec<String>>(
+        .del::<RedisValue, _>(
             resolutions
                 .iter()
                 .map(|resolution| format!("video:{uuid}:{resolution}"))
@@ -304,13 +304,13 @@ pub mod uuid {
 
         #[post("/upload/{uuid}/{resolution}")]
         async fn post(
-            req: HttpRequest,
+            request: HttpRequest,
             params: Path<PostVideo>,
             mut payload: Payload,
             data: Data<AppState<'_>>,
             range_header_option: Option<Header<header::Range>>,
         ) -> actix_web::Result<impl Responder> {
-            let Some(jwt) = get_authentication_data(&req, &data.clerk).await else {
+            let Some(jwt) = get_authentication_data(&request, &data.clerk).await else {
                 return Ok(HttpResponse::Unauthorized().body("User not logged in"));
             };
 

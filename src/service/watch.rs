@@ -36,11 +36,11 @@ pub mod uuid {
 
     #[get("/watch/{uuid}")]
     async fn get(
-        req: HttpRequest,
+        request: HttpRequest,
         params: Path<GetWatch>,
         data: Data<AppState<'_>>,
     ) -> actix_web::Result<impl Responder> {
-        let user_id = get_gorse_user_id(&req, &data.clerk).await;
+        let user_id = get_gorse_user_id(&request, &data.clerk).await;
         let recommendation_timestamp =
             (DateTime::<Utc>::from(SystemTime::now()) + Duration::new(3600, 0)).to_rfc3339();
 

@@ -19,8 +19,8 @@ use crate::{
 };
 
 #[get("/")]
-async fn get(req: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
-    let user_id = get_gorse_user_id(&req, &data.clerk).await;
+async fn get(request: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Result<impl Responder> {
+    let user_id = get_gorse_user_id(&request, &data.clerk).await;
 
     if data.gorse_client.get_user(&user_id).await.is_err() {
         data.gorse_client

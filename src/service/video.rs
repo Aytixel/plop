@@ -1,4 +1,4 @@
-use std::{fs::File, io::Cursor};
+use std::{fs::File, io::Cursor, time::SystemTime};
 
 use ::uuid::Uuid;
 use actix_files::NamedFile;
@@ -10,18 +10,23 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder,
 };
 use actix_web_validator5::Path;
+use chrono::{DateTime, Utc};
 use fred::{
     prelude::KeysInterface,
     types::{Expiration, RedisValue},
 };
+use gorse_rs::Feedback;
 use matroska_demuxer::{Frame, MatroskaFile, TrackType};
 use serde::Deserialize;
 use validator::Validate;
-use webm::mux::Track;
-use webm::mux::{AudioCodecId, Segment, VideoCodecId, Writer};
+use webm::mux::{AudioCodecId, Segment, Track, VideoCodecId, Writer};
 
 use crate::{
-    util::video::{get_resolution_availability, valid_resolution},
+    util::{
+        get_gorse_user_id,
+        video::{find_video, VIDEO_REDIS_TIMEOUT},
+        video::{get_resolution_availability, valid_resolution},
+    },
     AppState,
 };
 
@@ -67,7 +72,10 @@ pub mod uuid {
             use super::*;
 
             pub mod end_timestamp {
-                use crate::util::video::{find_video, VIDEO_REDIS_TIMEOUT};
+                use sea_orm::{ActiveModelTrait, EntityTrait};
+                use serde_json::Value;
+
+                use crate::{entity::video, MeilliDocument};
 
                 use super::*;
 
@@ -272,6 +280,74 @@ pub mod uuid {
                             last_frame_timestamp
                         }
                     };
+
+                    {
+                        // update vues
+                        let user_id = get_gorse_user_id(&request, &data.clerk).await;
+                        let vue_key = format!("vue:{user_id}:{}", params.uuid);
+                        let mut vue_duration = params.end_timestamp - params.start_timestamp
+                            + data
+                                .redis_client
+                                .get::<u64, _>(&vue_key)
+                                .await
+                                .unwrap_or_default();
+                        let vue_threshold = last_frame_timestamp / 4 * 3;
+
+                        if vue_duration >= vue_threshold {
+                            vue_duration -= vue_threshold;
+
+                            data.gorse_client
+                                .insert_feedback(&vec![Feedback {
+                                    feedback_type: "vue".to_string(),
+                                    user_id,
+                                    item_id: params.uuid.to_string(),
+                                    timestamp: DateTime::<Utc>::from(SystemTime::now())
+                                        .to_rfc3339(),
+                                }])
+                                .await
+                                .ok();
+
+                            if let Ok(mut video) = data
+                                .video_index
+                                .get_document::<MeilliDocument>(&params.uuid.to_string())
+                                .await
+                            {
+                                if let Some(object) = video.value.as_object_mut() {
+                                    object["vues"] = Value::from(
+                                        object["vues"].as_u64().unwrap_or_default() + 1,
+                                    );
+                                }
+
+                                data.video_index
+                                    .add_or_update(&[video], Some("id"))
+                                    .await
+                                    .ok();
+                            }
+                        }
+
+                        if let Ok(Some(video)) = video::Entity::find_by_id(params.uuid)
+                            .one(&data.db_connection)
+                            .await
+                        {
+                            let vues = video.vues + 1;
+                            let mut video = video::ActiveModel::from(video);
+
+                            video.set(video::Column::Vues, vues.into());
+                            video.update(&data.db_connection).await.ok();
+                        }
+
+                        data.redis_client
+                            .set::<RedisValue, _, _>(
+                                vue_key,
+                                vue_duration,
+                                Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
+                                None,
+                                false,
+                            )
+                            .await
+                            .ok();
+                        // update vues
+                    }
 
                     Ok(HttpResponse::with_body(StatusCode::OK, buffer)
                         .customize()
