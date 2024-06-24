@@ -49,7 +49,7 @@ function video_list_item_element_add_event(video_list_item_element) {
 for (const video of video_list_element.children) {
     const views_element = video.getElementsByClassName("views")[0]
 
-    views_element.textContent = formatviews(+views_element.textContent)
+    views_element.textContent = formatviews(+views_element.dataset.views)
 
     const date_element = video.getElementsByTagName("time")[0]
 

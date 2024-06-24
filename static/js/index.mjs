@@ -8,7 +8,7 @@ const time_ago = new TimeAgo('fr')
 function update_video_list_item(video) {
     const views_element = video.getElementsByClassName("views")[0]
 
-    views_element.textContent = formatviews(+views_element.textContent)
+    views_element.textContent = formatviews(+views_element.dataset.views)
 
     const date_element = video.getElementsByTagName("time")[0]
 
