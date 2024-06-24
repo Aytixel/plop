@@ -119,7 +119,7 @@ pub mod uuid {
                                 "lengths": lengths,
                                 "bitrates": bitrates,
                                 "has_audio": video.has_audio,
-                                "vues": video.vues,
+                                "views": video.views,
                                 "channel_username": channel_info.username,
                                 "channel_profil_picture": channel_info.profil_picture,
                             }),

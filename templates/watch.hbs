@@ -20,7 +20,7 @@
     <script>
         const video_metadata = JSON.parse(`{
             "uuid": "{{uuid}}",
-            "vues": {{vues}},
+            "views": {{views}},
             "duration": {{duration}},
             "framerate": {{framerate}},
             "title": "{{title}}",
@@ -55,7 +55,7 @@
                 </a>
                 <div id="video_info_description">
                     <div>
-                        <span id="video_info_vues"></span>
+                        <span id="video_info_views"></span>
                         <time id="video_info_time" datetime="{{timestamp}}"></time>
                         <span>
                             {{#each tags_short as |tag|}}

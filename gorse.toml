@@ -1,3 +1,3 @@
 
-positive_feedback_types = ["vue", "like", "share"]
+positive_feedback_types = ["view", "like", "share"]
 read_feedback_types = ["display", "open"]

@@ -71,6 +71,6 @@
     text-overflow: ellipsis;
 }
 
-#video_list :is(.vues_time, h3) {
+#video_list :is(.views_time, h3) {
     font-size: .8em;
 }

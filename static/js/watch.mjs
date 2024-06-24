@@ -1,5 +1,5 @@
 import "/component/video-player/video-player.mjs"
-import { formatVues } from "./utils/vues.mjs"
+import { formatviews } from "./utils/views.mjs"
 import { VideoSource } from "./video-source.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
@@ -8,19 +8,19 @@ const time_ago = new TimeAgo('fr')
 
 class VideoInfo {
     #description = document.getElementById("video_info_description")
-    #vues = document.getElementById("video_info_vues")
+    #views = document.getElementById("video_info_views")
     #time = document.getElementById("video_info_time")
     #show_more = document.getElementById("video_info_show_more")
 
     #info = {
         show_more: false,
         date: null,
-        vues: null,
+        views: null,
     }
 
     constructor(video_metadata) {
         this.date = video_metadata.date
-        this.vues = video_metadata.vues
+        this.views = video_metadata.views
 
         this.#show_more.addEventListener("click", () => this.showMore = !this.showMore)
     }
@@ -51,15 +51,15 @@ class VideoInfo {
         return this.#info.date
     }
 
-    set vues(vues) {
-        if (this.#info.vues != vues) {
-            this.#vues.textContent = formatVues(vues) || this.#vues.textContent
-            this.#info.vues = vues
+    set views(views) {
+        if (this.#info.views != views) {
+            this.#views.textContent = formatviews(views) || this.#views.textContent
+            this.#info.views = views
         }
     }
 
-    get vues() {
-        return this.#info.vues
+    get views() {
+        return this.#info.views
     }
 }
 

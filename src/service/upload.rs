@@ -66,7 +66,7 @@ async fn get(request: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Resul
             json!({
                 "uuid": video.uuid,
                 "title": video.title,
-                "vues": video.vues,
+                "views": video.views,
                 "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
                 "duration": video.duration,
                 "resolutions": [
@@ -386,7 +386,7 @@ pub mod uuid {
                                     "title": video.title,
                                     "description": video.description,
                                     "tags": tags,
-                                    "vues": video.vues,
+                                    "views": video.views,
                                     "likes": video.likes,
                                     "duration": video.duration,
                                     "timestamp": video.timestamp,

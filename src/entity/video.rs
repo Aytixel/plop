@@ -13,7 +13,7 @@ pub struct Model {
     pub description: Option<String>,
     pub tags: Option<String>,
     pub timestamp: DateTime,
-    pub vues: i64,
+    pub views: i64,
     pub likes: i64,
     #[sea_orm(column_type = "Double")]
     pub duration: f64,

@@ -72,7 +72,7 @@ async fn get(request: HttpRequest, data: Data<AppState<'_>>) -> actix_web::Resul
         videos.push(json!({
             "uuid": video.uuid,
             "title": video.title,
-            "vues": video.vues,
+            "views": video.views,
             "timestamp": video.timestamp.format("%Y-%m-%dT%H:%M:%S%.fZ").to_string(),
             "duration": video.duration,
             "channel_info": get_channel_info(

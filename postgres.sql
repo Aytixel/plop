@@ -9,7 +9,7 @@ CREATE TABLE video (
     description varchar(5000),
     tags varchar(500),
     timestamp timestamp(6) NOT NULL DEFAULT now(),
-    vues bigint NOT NULL DEFAULT 0,
+    views bigint NOT NULL DEFAULT 0,
     likes bigint NOT NULL DEFAULT 0,
     duration double precision NOT NULL,
     framerate smallint NOT NULL,

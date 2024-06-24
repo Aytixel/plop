@@ -1,14 +1,14 @@
 import "/component/video-preview/video-preview.mjs"
-import { formatVues } from "./utils/vues.mjs"
+import { formatviews } from "./utils/views.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
 
 const time_ago = new TimeAgo('fr')
 
 function update_video_list_item(video) {
-    const vues_element = video.getElementsByClassName("vues")[0]
+    const views_element = video.getElementsByClassName("views")[0]
 
-    vues_element.textContent = formatVues(+vues_element.textContent)
+    views_element.textContent = formatviews(+views_element.textContent)
 
     const date_element = video.getElementsByTagName("time")[0]
 
