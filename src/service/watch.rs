@@ -92,6 +92,7 @@ pub mod uuid {
         Ok(
             HttpResponse::Ok()
                 .insert_header(("Cache-Control", "no-store"))
+                .insert_header(("Content-type", "text/html; charset=utf-8"))
                 .body(
                     data.handlebars
                         .render(
