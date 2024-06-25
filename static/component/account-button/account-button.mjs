@@ -86,7 +86,9 @@ class AccountButtonElement extends HTMLElement {
 
                     overflow: hidden;
     
-                    background-color: rgb(var(--color-dark) / .05);
+                    background-color: color-mix(in srgb, rgb(var(--color-dark) / .1) 50%, rgb(var(--color-light) / .9));
+
+                    backdrop-filter: blur(10px);
                 }
 
                 ${seletor} .menu button {
