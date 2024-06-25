@@ -76,7 +76,7 @@ class AccountButtonElement extends HTMLElement {
 
                 ${seletor} .menu {
                     position: absolute;
-                    top: 2.5em;
+                    top: 2.75em;
                     right: 0;
 
                     width: 20em;
