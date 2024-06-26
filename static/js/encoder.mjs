@@ -1,8 +1,5 @@
 import { Muxer, StreamTarget } from "https://cdn.jsdelivr.net/npm/webm-muxer@3.1/+esm"
 
-if ("mozCaptureStream" in HTMLMediaElement.prototype)
-    HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
-
 class EncodingDataEvent extends Event {
     resolution
     position

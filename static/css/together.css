@@ -1,0 +1,31 @@
+@import "global.css";
+
+/*
+
+    Main Container
+
+*/
+#main_container {
+    margin: 0 auto;
+
+    --main-width: calc(max(min(130vh, 100vw), 280px) - 2rem);
+
+    width: var(--main-width);
+}
+
+/*
+
+    Video Player
+
+*/
+#video_player_container {
+    width: 100%;
+    height: calc(var(--main-width) * 9 / 16);
+}
+
+video-player {
+    margin: auto;
+
+    max-width: 100%;
+    max-height: calc(var(--main-width) * 9 / 16);
+}

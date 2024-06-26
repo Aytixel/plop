@@ -131,3 +131,34 @@ video_player.preview = `/video/${video_metadata.uuid}/${video_metadata.resolutio
 
 window.video_source = video_source
 window.video_player = video_player
+
+// watch together
+const watch_together_button = document.getElementById("video_info_watch_together")
+let watch_together_url = ""
+
+watch_together_button.addEventListener("click", () => {
+    if (!watch_together_url.length) {
+        const peer = new Peer()
+        const stream = video_player.captureStream()
+        const canvas = new OffscreenCanvas(video_player.videoWidth, video_player.videoHeight)
+        const context = canvas.getContext("2d")
+
+        peer.on("open", id => {
+            watch_together_button.children[0].style.display = "none"
+            watch_together_button.children[1].style.display = "block"
+            watch_together_url = location.origin + `/together/${id}`
+
+            navigator.clipboard.writeText(watch_together_url)
+        })
+        peer.on("connection", connection => {
+            connection.on("open", async () => {
+                context.drawImage(video_player.video, 0, 0)
+
+                connection.send(await canvas.convertToBlob({ type: "image/webp", quality: 0.85 }))
+            })
+        })
+        peer.on("call", call => call.answer(stream))
+    }
+
+    navigator.clipboard.writeText(watch_together_url)
+})

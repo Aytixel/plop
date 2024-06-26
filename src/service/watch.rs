@@ -10,6 +10,7 @@ use actix_web::{
 };
 use actix_web_validator5::Path;
 use chrono::{DateTime, Utc};
+use futures::future::join;
 use gorse_rs::Feedback;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
@@ -27,8 +28,6 @@ use crate::{
 };
 
 pub mod uuid {
-    use futures::future::join;
-
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]

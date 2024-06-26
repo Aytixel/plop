@@ -191,7 +191,7 @@ textarea {
     display: none;
 }
 
-@media (min-width: 600px) {
+@media (min-width: 600px) and (min-height: 400px) {
     :is(.button, button, input[type="submit"], input[type="reset"], input[type="button"]).collapse {
         padding: var(--padding-block) var(--padding-inline);
     }

@@ -1,5 +1,8 @@
 import { formatDuration } from "../../js/utils/duration.mjs"
 
+if ("mozCaptureStream" in HTMLMediaElement.prototype)
+    HTMLMediaElement.prototype.captureStream = HTMLMediaElement.prototype.mozCaptureStream
+
 class VideoPlayer extends EventTarget {
     #parent
     #video_player
@@ -7,7 +10,7 @@ class VideoPlayer extends EventTarget {
     #context
     #compute_canvas
     #compute_context
-    #video
+    video
     #overlay
     #play_button
     #volume_button
@@ -27,6 +30,7 @@ class VideoPlayer extends EventTarget {
         title: "",
         ambient_light: true,
         duration: -1,
+        live: false,
     }
 
     constructor(parent, options = {}) {
@@ -38,7 +42,7 @@ class VideoPlayer extends EventTarget {
         this.#context = this.#canvas.getContext("2d")
         this.#compute_canvas = this.#canvas.cloneNode()
         this.#compute_context = this.#compute_canvas.getContext("2d")
-        this.#video = this.#video_player.children[1]
+        this.video = this.#video_player.children[1]
         this.#overlay = this.#parent.getElementById("video_player_overlay")
         this.#play_button = this.#parent.getElementById("video_player_play_button")
         this.#volume_button = this.#parent.getElementById("video_player_volume_button")
@@ -56,22 +60,29 @@ class VideoPlayer extends EventTarget {
         if (typeof options.uuid === "string") this.#metadata.uuid = options.uuid
         if (typeof options.title === "string") this.#metadata.title = options.title
         if (typeof options.ambient_light === "boolean") this.#metadata.ambient_light = options.ambient_light
+        if (typeof options.live === "boolean") this.#metadata.live = options.live
 
         const duration = this.#metadata.duration = (typeof options.duration === "number") ? options.duration : -1
-        let start_time = (typeof options.start_time === "number") ? options.start_time : parseFloat(new URLSearchParams(location.search).get("t"))
+        let start_time = this.#metadata.live ? 0 : (typeof options.start_time === "number") ? options.start_time : parseFloat(new URLSearchParams(location.search).get("t"))
+
+        this.#video_player.dataset.live = this.#metadata.live
 
         // setup media session
         if ("mediaSession" in navigator) {
-            const updateTime = () => !isNaN(this.duration) && navigator.mediaSession.setPositionState({
-                duration: this.duration,
-                playbackRate: this.#video.playbackRate,
-                position: this.currentTime
-            })
+            const updateTime = () => {
+                if (!isNaN(this.duration) && isFinite(this.duration)) {
+                    navigator.mediaSession.setPositionState({
+                        duration: this.duration,
+                        playbackRate: this.video.playbackRate,
+                        position: this.currentTime
+                    })
+                }
+            }
 
-            this.#video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
-            this.#video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
-            this.#video.addEventListener("timeupdate", updateTime)
-            this.#video.addEventListener("loadedmetadata", updateTime)
+            this.video.addEventListener("play", () => navigator.mediaSession.playbackState = "playing")
+            this.video.addEventListener("pause", () => navigator.mediaSession.playbackState = "paused")
+            this.video.addEventListener("timeupdate", updateTime)
+            this.video.addEventListener("loadedmetadata", updateTime)
 
             navigator.mediaSession.playbackState = this.paused ? "paused" : "playing"
             navigator.mediaSession.metadata = new MediaMetadata({
@@ -87,7 +98,7 @@ class VideoPlayer extends EventTarget {
             navigator.mediaSession.setActionHandler("seekforward", (details) => this.currentTime += details.seekOffset || 2)
             navigator.mediaSession.setActionHandler("seekto", (details) => {
                 if (details.fastSeek && "fastSeek" in HTMLMediaElement.prototype)
-                    this.#video.fastSeek(details.seekTime)
+                    this.video.fastSeek(details.seekTime)
                 else
                     this.currentTime = details.seekTime
             })
@@ -172,21 +183,21 @@ class VideoPlayer extends EventTarget {
         const updatePlayButton = () => this.#video_player.dataset.paused = this.paused
         const updateDuration = () => this.#duration.textContent = formatDuration(this.#progress_slider.max = this.duration)
 
-        this.#video.addEventListener("play", updatePlayButton)
-        this.#video.addEventListener("pause", updatePlayButton)
-        this.#video.addEventListener("loadedmetadata", updateDuration)
-        this.#video.addEventListener("durationchange", updateDuration)
-        this.#video.addEventListener("timeupdate", () => this.#updateTime())
-        this.#video.addEventListener("volumechange", () => this.#updateVolume())
-        this.#video.addEventListener("enterpictureinpicture", () => this.fullscreen = false)
+        this.video.addEventListener("play", updatePlayButton)
+        this.video.addEventListener("pause", updatePlayButton)
+        this.video.addEventListener("loadedmetadata", updateDuration)
+        this.video.addEventListener("durationchange", updateDuration)
+        this.video.addEventListener("timeupdate", () => this.#updateTime())
+        this.video.addEventListener("volumechange", () => this.#updateVolume())
+        this.video.addEventListener("enterpictureinpicture", () => this.fullscreen = false)
 
         // update ui on buffer progress
         const updateBufferProgress = () => {
             const gradients = []
 
-            for (let i = 0; i < this.#video.buffered.length; i++) {
-                const start = this.#video.buffered.start(i) / this.duration * 100
-                const end = this.#video.buffered.end(i) / this.duration * 100
+            for (let i = 0; i < this.video.buffered.length; i++) {
+                const start = this.video.buffered.start(i) / this.duration * 100
+                const end = this.video.buffered.end(i) / this.duration * 100
 
                 gradients.push(`rgb(var(--color-fixed-light) / .4) ${start}%, rgb(var(--color-secondary) / .7) ${start}%, rgb(var(--color-secondary) / .7) ${end}%, rgb(var(--color-fixed-light) / .4) ${end}%`)
             }
@@ -194,9 +205,9 @@ class VideoPlayer extends EventTarget {
             this.#progress_slider.style.background = `linear-gradient(90deg, ${gradients.join(",")})`
         }
 
-        this.#video.addEventListener("progress", updateBufferProgress)
-        this.#video.addEventListener("timeupdate", updateBufferProgress)
-        this.#video.addEventListener("play", updateBufferProgress)
+        this.video.addEventListener("progress", updateBufferProgress)
+        this.video.addEventListener("timeupdate", updateBufferProgress)
+        this.video.addEventListener("play", updateBufferProgress)
 
         // update ambient light canvas
         let battery_high = true
@@ -221,7 +232,7 @@ class VideoPlayer extends EventTarget {
                 requestAnimationFrame(() => this.#context.drawImage(this.#compute_canvas, 0, 0, this.#canvas.width, this.#canvas.height))
         }, 100)
 
-        this.#video.addEventListener("loadeddata", () => setTimeout(() => this.#updateCanvas(), 100))
+        this.video.addEventListener("loadeddata", () => setTimeout(() => this.#updateCanvas(), 100))
 
         // key bindings
         this.#video_player.addEventListener("pointerdown", () => this.#video_player.focus())
@@ -250,32 +261,32 @@ class VideoPlayer extends EventTarget {
         })
 
         // event passthrough
-        this.#video.addEventListener("abort", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("canplay", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("canplaythrough", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("durationchange", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("emptied", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("encrypted", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("ended", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("error", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("loadeddata", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("loadedmetadata", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("loadstart", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("pause", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("play", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("playing", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("progress", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("ratechange", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("seeked", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("seeking", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("stalled", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("suspend", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("timeupdate", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("volumechange", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("waiting", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("enterpictureinpicture", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("leavepictureinpicture", e => this.dispatchEvent(new e.constructor(e.type, e)))
-        this.#video.addEventListener("resize", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("abort", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("canplay", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("canplaythrough", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("durationchange", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("emptied", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("encrypted", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("ended", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("error", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("loadeddata", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("loadedmetadata", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("loadstart", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("pause", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("play", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("playing", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("progress", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("ratechange", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("seeked", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("seeking", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("stalled", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("suspend", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("timeupdate", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("volumechange", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("waiting", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("enterpictureinpicture", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("leavepictureinpicture", e => this.dispatchEvent(new e.constructor(e.type, e)))
+        this.video.addEventListener("resize", e => this.dispatchEvent(new e.constructor(e.type, e)))
     }
 
     set uuid(uuid) {
@@ -303,16 +314,16 @@ class VideoPlayer extends EventTarget {
     }
 
     get duration() {
-        return (this.#metadata.duration == -1) ? this.#video.duration : this.#metadata.duration
+        return (this.#metadata.duration == -1) ? this.video.duration : this.#metadata.duration
     }
 
     set currentTime(currentTime) {
-        this.#video.currentTime = currentTime
+        this.video.currentTime = currentTime
         this.#updateTime()
     }
 
     get currentTime() {
-        return this.#video.currentTime
+        return this.video.currentTime
     }
 
     get ended() {
@@ -324,26 +335,26 @@ class VideoPlayer extends EventTarget {
     }
 
     get paused() {
-        return this.#video.paused
+        return this.video.paused
     }
 
     set muted(muted) {
-        this.#video.muted = muted
+        this.video.muted = muted
         this.#updateVolume()
     }
 
     get muted() {
-        return this.#video.muted
+        return this.video.muted
     }
 
     set volume(volume) {
         this.muted = false
-        this.#video.volume = volume
+        this.video.volume = volume
         this.#updateVolume()
     }
 
     get volume() {
-        return this.#video.volume
+        return this.video.volume
     }
 
     set fullscreen(fullscreen) {
@@ -366,19 +377,28 @@ class VideoPlayer extends EventTarget {
     }
 
     set poster(poster) {
-        this.#video.poster = poster
+        this.video.poster = poster
     }
 
     get poster() {
-        return this.#video.poster
+        return this.video.poster
     }
 
     set src(src) {
-        this.#video.src = src
+        this.video.src = src
     }
 
     get src() {
-        return this.#video.src
+        return this.video.src
+    }
+
+    set srcObject(srcObject) {
+        this.video.srcObject = srcObject
+        this.video.classList.add("src")
+    }
+
+    get srcObject() {
+        return this.video.srcObject
     }
 
     set preview(preview) {
@@ -390,27 +410,27 @@ class VideoPlayer extends EventTarget {
     }
 
     get videoWidth() {
-        return this.#video.videoWidth
+        return this.video.videoWidth
     }
 
     get videoHeight() {
-        return this.#video.videoHeight
+        return this.video.videoHeight
     }
 
     captureStream() {
-        return this.#video.captureStream()
+        return this.video.captureStream()
     }
 
     play() {
-        return this.#video.play()
+        return this.video.play()
     }
 
     pause() {
-        this.#video.pause()
+        this.video.pause()
     }
 
     requestPictureInPicture() {
-        "requestPictureInPicture" in HTMLVideoElement.prototype && !this.#video.disablePictureInPicture && this.#video.requestPictureInPicture()
+        "requestPictureInPicture" in HTMLVideoElement.prototype && !this.video.disablePictureInPicture && this.video.requestPictureInPicture()
     }
 
     #updateTime() {
@@ -447,7 +467,7 @@ class VideoPlayer extends EventTarget {
 
     #updateCanvas() {
         if (this.#video_player.dataset.ambient_light == "true")
-            setTimeout(() => requestAnimationFrame(() => this.#compute_context.drawImage(this.#video, 0, 0, this.#compute_canvas.width, this.#compute_canvas.height)), 500)
+            setTimeout(() => requestAnimationFrame(() => this.#compute_context.drawImage(this.video, 0, 0, this.#compute_canvas.width, this.#compute_canvas.height)), 500)
     }
 
     #debounce(callback, delay) {
@@ -523,7 +543,7 @@ class VideoPlayerElement extends HTMLElement {
                                 </svg>
                             </button>
                             <input type="range" min="0" max="1" value="1" step="0.05" id="video_player_volume_slider" aria-label="Barre de Volume">
-                            <span>
+                            <span id="video_player_progress_container">
                                 <span id="video_player_progress">0:00</span> / <span id="video_player_duration">0:00</span>
                             </span>
                             <span class="filler"></span>

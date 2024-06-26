@@ -52,7 +52,7 @@ video-player {
 #video_info_bar {
     display: grid;
     align-items: center;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto auto;
     gap: .5em;
 
     margin-top: 1em;
