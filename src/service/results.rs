@@ -1,5 +1,8 @@
+use std::collections::{HashMap, HashSet};
+
 use actix_web::{error::ErrorInternalServerError, get, web::Data, HttpResponse, Responder};
 use actix_web_validator5::Query;
+use futures::future::join_all;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use validator::Validate;
@@ -31,21 +34,38 @@ async fn get(
         .iter()
         .map(|result| serde_json::to_value(&result.result).unwrap())
         .collect::<Vec<Value>>();
+    let user_ids: HashSet<String> = results
+        .iter()
+        .map(|result| {
+            result.as_object().unwrap()["user_id"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    let mut channels_info = HashMap::new();
+
+    for channel_info in join_all(
+        user_ids
+            .iter()
+            .map(|user_id| get_channel_info(&user_id, &data.clerk, &data.redis_client)),
+    )
+    .await
+    {
+        let channel_info = channel_info?;
+
+        channels_info.insert(
+            channel_info.user_id.clone(),
+            serde_json::to_value(channel_info).unwrap(),
+        );
+    }
 
     for result in results.iter_mut() {
         let result_object = result.as_object_mut().unwrap();
 
         result_object.insert(
             "channel_info".to_string(),
-            serde_json::to_value(
-                &get_channel_info(
-                    result_object["user_id"].as_str().unwrap(),
-                    &data.clerk,
-                    &data.redis_client,
-                )
-                .await?,
-            )
-            .unwrap(),
+            channels_info[result_object["user_id"].as_str().unwrap()].clone(),
         );
     }
 

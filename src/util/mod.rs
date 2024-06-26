@@ -27,13 +27,13 @@ pub async fn get_authentication_data(request: &HttpRequest, clerk: &Clerk) -> Op
         .flatten()
 }
 
-pub async fn get_gorse_user_id(request: &HttpRequest, clerk: &Clerk) -> String {
-    get_authentication_data(request, clerk).await.map_or(
+pub async fn get_gorse_user_id(request: &HttpRequest, jwt: &Option<ClerkJwt>) -> String {
+    jwt.as_ref().map_or(
         request
             .connection_info()
             .peer_addr()
             .unwrap_or("global")
             .to_string(),
-        |jwt| jwt.sub,
+        |jwt| jwt.sub.clone(),
     )
 }

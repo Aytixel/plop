@@ -20,6 +20,7 @@ use fred::{
     interfaces::KeysInterface,
     types::{Expiration, RedisValue},
 };
+use futures::future::{join, join3};
 use gorse_rs::Item;
 use sea_orm::{
     ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
@@ -194,19 +195,19 @@ async fn put(
         ..Default::default()
     };
 
-    video
-        .insert(&data.db_connection)
-        .await
-        .map_err(|_| ErrorInternalServerError("Unable to insert new video"))?;
+    let (video, _, file) = join3(
+        video.insert(&data.db_connection),
+        create_dir_all("./thumbnail/".to_string()),
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(format!("./thumbnail/{}.webp", uuid)),
+    )
+    .await;
 
-    create_dir_all("./thumbnail/".to_string()).await.ok();
+    video.map_err(|_| ErrorInternalServerError("Unable to insert new video"))?;
 
-    if let Ok(mut file) = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(format!("./thumbnail/{}.webp", uuid))
-        .await
-    {
+    if let Ok(mut file) = file {
         file.write(&thumbnail_data).await.ok();
     }
 
@@ -236,25 +237,22 @@ async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Resu
             })?;
     }
 
-    data.redis_client
-        .del::<RedisValue, _>(
+    let (_, gorse, db) = join3(
+        data.redis_client.del::<RedisValue, _>(
             resolutions
                 .iter()
                 .map(|resolution| format!("video:{uuid}:{resolution}"))
                 .collect::<Vec<String>>(),
-        )
-        .await
-        .ok();
-    data.gorse_client
-        .delete_item(&uuid.to_string())
-        .await
-        .map_err(|_| {
-            ErrorInternalServerError("Unable to remove videos from the recommendation base")
-        })?;
-    video
-        .delete(&data.db_connection)
-        .await
-        .map_err(|_| ErrorInternalServerError("Unable delete the video from the database"))?;
+        ),
+        data.gorse_client.delete_item(&uuid.to_string()),
+        video.delete(&data.db_connection),
+    )
+    .await;
+
+    gorse.map_err(|_| {
+        ErrorInternalServerError("Unable to remove videos from the recommendation base")
+    })?;
+    db.map_err(|_| ErrorInternalServerError("Unable delete the video from the database"))?;
 
     Ok(())
 }
@@ -441,24 +439,24 @@ pub mod uuid {
                     VideoUploadState::Unavailable
                 };
 
-                data.redis_client
-                    .set::<RedisValue, _, _>(
+                let mut video = ActiveModel::from(video);
+                let video_upload_state_string = video_upload_state.to_value().to_string();
+
+                video.set(resolution_column, video_upload_state.into());
+
+                let (video, _) = join(
+                    video.update(&data.db_connection),
+                    data.redis_client.set::<RedisValue, _, _>(
                         format!("video:{}:{}", params.uuid, params.resolution),
-                        video_upload_state.to_value().to_string(),
+                        video_upload_state_string,
                         Some(Expiration::EX(VIDEO_REDIS_TIMEOUT)),
                         None,
                         false,
-                    )
-                    .await
-                    .ok();
+                    ),
+                )
+                .await;
 
-                let mut video = ActiveModel::from(video);
-
-                video.set(resolution_column, video_upload_state.into());
-                video
-                    .update(&data.db_connection)
-                    .await
-                    .map_err(|_| ErrorInternalServerError("Unable to end the video file"))?;
+                video.map_err(|_| ErrorInternalServerError("Unable to end the video file"))?;
             }
 
             Ok(HttpResponse::Ok().finish())

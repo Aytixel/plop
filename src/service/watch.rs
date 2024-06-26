@@ -27,6 +27,8 @@ use crate::{
 };
 
 pub mod uuid {
+    use futures::future::join;
+
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]
@@ -40,23 +42,23 @@ pub mod uuid {
         params: Path<GetWatch>,
         data: Data<AppState<'_>>,
     ) -> actix_web::Result<impl Responder> {
-        let user_id = get_gorse_user_id(&request, &data.clerk).await;
+        let jwt = get_authentication_data(&request, &data.clerk).await;
+        let user_id = get_gorse_user_id(&request, &jwt).await;
         let recommendation_timestamp =
             (DateTime::<Utc>::from(SystemTime::now()) + Duration::new(3600, 0)).to_rfc3339();
 
-        data.gorse_client
-            .insert_feedback(&vec![Feedback {
+        let (_, db) = join(
+            data.gorse_client.insert_feedback(&vec![Feedback {
                 feedback_type: "open".to_string(),
                 user_id: user_id,
                 item_id: params.uuid.to_string(),
                 timestamp: recommendation_timestamp,
-            }])
-            .await
-            .ok();
+            }]),
+            video::Entity::find_by_id(params.uuid).one(&data.db_connection),
+        )
+        .await;
 
-        let video = video::Entity::find_by_id(params.uuid)
-            .one(&data.db_connection)
-            .await
+        let video = db
             .map_err(|_| ErrorInternalServerError("Unable to find a video with this resolution"))?
             .ok_or_else(|| ErrorNotFound("Unable to find a video with this resolution"))?;
         let channel_info =
@@ -88,7 +90,7 @@ pub mod uuid {
             Some((tags, tags_short)) => (Some(tags), Some(tags_short)),
             None => (None, None),
         };
-        let liked = match get_authentication_data(&request, &data.clerk).await {
+        let liked = match jwt {
             Some(jwt) => like::Entity::find()
                 .filter(like::Column::Uuid.eq(params.uuid))
                 .filter(like::Column::UserId.eq(jwt.sub))

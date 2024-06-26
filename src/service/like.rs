@@ -6,6 +6,7 @@ use actix_web::{
 };
 use actix_web_validator5::Path;
 use chrono::{DateTime, Utc};
+use futures::future::join;
 use gorse_rs::Feedback;
 use sea_orm::{ActiveModelTrait, Set};
 use serde::Deserialize;
@@ -14,6 +15,8 @@ use validator::Validate;
 use crate::{entity::like, util::get_authentication_data, AppState};
 
 pub mod uuid {
+    use futures::FutureExt;
+
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]
@@ -33,19 +36,20 @@ pub mod uuid {
                 user_id: Set(jwt.sub.clone()),
             };
 
-            data.gorse_client
-                .insert_feedback(&vec![Feedback {
-                    feedback_type: "like".to_string(),
-                    user_id: jwt.sub,
-                    item_id: params.uuid.to_string(),
-                    timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
-                }])
-                .await
-                .ok();
+            let (_, db) = join(
+                data.gorse_client
+                    .insert_feedback(&vec![Feedback {
+                        feedback_type: "like".to_string(),
+                        user_id: jwt.sub,
+                        item_id: params.uuid.to_string(),
+                        timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
+                    }])
+                    .boxed(),
+                like.insert(&data.db_connection),
+            )
+            .await;
 
-            like.insert(&data.db_connection)
-                .await
-                .map_err(|_| ErrorInternalServerError("Unable to add like"))?;
+            db.map_err(|_| ErrorInternalServerError("Unable to add like"))?;
         }
 
         Ok(HttpResponse::Ok())

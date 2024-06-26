@@ -15,6 +15,7 @@ use fred::{
     prelude::KeysInterface,
     types::{Expiration, RedisValue},
 };
+use futures::future::join;
 use gorse_rs::Feedback;
 use matroska_demuxer::{Frame, MatroskaFile, TrackType};
 use sea_orm::{ActiveModelTrait, EntityTrait};
@@ -27,7 +28,7 @@ use webm::mux::{AudioCodecId, Segment, Track, VideoCodecId, Writer};
 use crate::{
     entity::video,
     util::{
-        get_gorse_user_id,
+        get_authentication_data, get_gorse_user_id,
         video::{find_video, VIDEO_REDIS_TIMEOUT},
         video::{get_resolution_availability, valid_resolution},
     },
@@ -291,7 +292,8 @@ pub mod uuid {
 
                     {
                         // update views
-                        let user_id = get_gorse_user_id(&request, &data.clerk).await;
+                        let jwt = get_authentication_data(&request, &data.clerk).await;
+                        let user_id = get_gorse_user_id(&request, &jwt).await;
                         let view_key = format!("view:{user_id}:{}", params.uuid);
                         let mut view_duration = params.end_timestamp - params.start_timestamp
                             + data
@@ -304,29 +306,26 @@ pub mod uuid {
                         if view_duration >= view_threshold {
                             view_duration -= view_threshold;
 
-                            data.gorse_client
-                                .insert_feedback(&vec![Feedback {
+                            let (_, video) = join(
+                                data.gorse_client.insert_feedback(&vec![Feedback {
                                     feedback_type: "view".to_string(),
                                     user_id,
                                     item_id: params.uuid.to_string(),
                                     timestamp: DateTime::<Utc>::from(SystemTime::now())
                                         .to_rfc3339(),
-                                }])
-                                .await
-                                .ok();
+                                }]),
+                                video::Entity::find_by_id(params.uuid).one(&data.db_connection),
+                            )
+                            .await;
 
-                            if let Ok(Some(video)) = video::Entity::find_by_id(params.uuid)
-                                .one(&data.db_connection)
-                                .await
-                            {
+                            if let Ok(Some(video)) = video {
                                 let views = video.views + 1;
                                 let mut video = video::ActiveModel::from(video);
 
                                 video.set(video::Column::Views, views.into());
-                                video.update(&data.db_connection).await.ok();
 
-                                data.video_index
-                                    .add_or_update(
+                                let _ = join(
+                                    data.video_index.add_or_update(
                                         &[MeilliDocument {
                                             id: params.uuid.to_string(),
                                             value: json!({
@@ -334,9 +333,10 @@ pub mod uuid {
                                             }),
                                         }],
                                         Some("id"),
-                                    )
-                                    .await
-                                    .ok();
+                                    ),
+                                    video.update(&data.db_connection),
+                                )
+                                .await;
                             }
                         }
 

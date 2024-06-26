@@ -11,6 +11,7 @@ pub const CHANNEL_INFO_REDIS_TIMEOUT: i64 = 3600 * 4;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ChannelInfo {
+    pub user_id: String,
     pub username: String,
     pub profil_picture: String,
 }
@@ -31,6 +32,7 @@ pub async fn get_channel_info(
             .await
             .map_err(|_| ErrorInternalServerError("Unable to get channel info"))?;
         let channel_info = ChannelInfo {
+            user_id: user_id.to_string(),
             username: user.username.unwrap_or_default().unwrap_or_default(),
             profil_picture: user.image_url.unwrap_or_default(),
         };
