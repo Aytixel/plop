@@ -1,8 +1,12 @@
+use std::time::SystemTime;
+
 use ::uuid::Uuid;
 use actix_web::{
     delete, error::ErrorInternalServerError, post, web::Data, HttpRequest, HttpResponse, Responder,
 };
 use actix_web_validator5::Path;
+use chrono::{DateTime, Utc};
+use gorse_rs::Feedback;
 use sea_orm::{ActiveModelTrait, Set};
 use serde::Deserialize;
 use validator::Validate;
@@ -26,8 +30,18 @@ pub mod uuid {
         if let Some(jwt) = get_authentication_data(&request, &data.clerk).await {
             let like = like::ActiveModel {
                 uuid: Set(params.uuid),
-                user_id: Set(jwt.sub),
+                user_id: Set(jwt.sub.clone()),
             };
+
+            data.gorse_client
+                .insert_feedback(&vec![Feedback {
+                    feedback_type: "like".to_string(),
+                    user_id: jwt.sub,
+                    item_id: params.uuid.to_string(),
+                    timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
+                }])
+                .await
+                .ok();
 
             like.insert(&data.db_connection)
                 .await
