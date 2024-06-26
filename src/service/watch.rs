@@ -1,4 +1,7 @@
+use std::time::{Duration, SystemTime};
+
 use ::uuid::Uuid;
+use actix_web::HttpRequest;
 use actix_web::{
     error::{ErrorInternalServerError, ErrorNotFound},
     get,
@@ -6,27 +9,24 @@ use actix_web::{
     HttpResponse, Responder,
 };
 use actix_web_validator5::Path;
-use sea_orm::EntityTrait;
+use chrono::{DateTime, Utc};
+use gorse_rs::Feedback;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
 use serde_json::json;
 use tokio::fs::metadata;
 use validator::Validate;
 
 use crate::{
-    entity::{sea_orm_active_enums::VideoUploadState, video},
-    util::{channel::get_channel_info, video::get_resolutions},
+    entity::{like, sea_orm_active_enums::VideoUploadState, video},
+    util::{
+        channel::get_channel_info, get_authentication_data, get_gorse_user_id,
+        video::get_resolutions,
+    },
     AppState,
 };
 
 pub mod uuid {
-    use std::time::{Duration, SystemTime};
-
-    use actix_web::HttpRequest;
-    use chrono::{DateTime, Utc};
-    use gorse_rs::Feedback;
-
-    use crate::util::get_gorse_user_id;
-
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]
@@ -88,6 +88,16 @@ pub mod uuid {
             Some((tags, tags_short)) => (Some(tags), Some(tags_short)),
             None => (None, None),
         };
+        let liked = match get_authentication_data(&request, &data.clerk).await {
+            Some(jwt) => like::Entity::find()
+                .filter(like::Column::Uuid.eq(params.uuid))
+                .filter(like::Column::UserId.eq(jwt.sub))
+                .one(&data.db_connection)
+                .await
+                .map(|like| like.is_some())
+                .unwrap_or(false),
+            None => false,
+        };
 
         Ok(
             HttpResponse::Ok()
@@ -121,6 +131,8 @@ pub mod uuid {
                                 "bitrates": bitrates,
                                 "has_audio": video.has_audio,
                                 "views": video.views,
+                                "likes": video.likes,
+                                "liked": liked,
                                 "channel_username": channel_info.username,
                                 "channel_profil_picture": channel_info.profil_picture,
                             }),

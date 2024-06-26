@@ -1,14 +1,7 @@
-export function formatviews(views) {
-    if (typeof views === "number") {
-        if (views >= 0 && views < 1000)
-            return views + (views > 1 ? " views" : " view")
-        else if (views < 1000000)
-            return (Math.round(views / 100) / 10) + " k views"
-        else if (views < 1000000000)
-            return (Math.round(views / 100000) / 10) + " M de views"
-        else
-            return (Math.round(views / 100000000) / 10) + " Md de views"
-    }
+import { formatCount } from "./count.mjs"
 
-    return null
+export function formatViews(views) {
+    let views_string = formatCount(views)
+
+    return views_string + (views > 1 ? (views >= 1000000 ? " de vues" : " vues") : " vue")
 }

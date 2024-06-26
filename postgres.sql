@@ -22,3 +22,28 @@ CREATE TABLE video (
     state_1080p video_upload_state NOT NULL,
     state_1440p video_upload_state NOT NULL
 );
+
+CREATE TABLE "like" (
+    uuid uuid NOT NULL,
+    user_id varchar(32) NOT NULL,
+    PRIMARY KEY (uuid, user_id)
+);
+
+CREATE OR REPLACE FUNCTION add_like_trigger() RETURNS TRIGGER AS $$
+DECLARE
+BEGIN
+    UPDATE video SET likes = likes + 1 WHERE uuid = NEW.uuid;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION remove_like_trigger() RETURNS TRIGGER AS $$
+DECLARE
+BEGIN
+    UPDATE video SET likes = likes - 1 WHERE uuid = OLD.uuid;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER add_like AFTER INSERT ON "like" FOR EACH ROW EXECUTE FUNCTION add_like_trigger();
+CREATE TRIGGER remove_like AFTER DELETE ON "like" FOR EACH ROW EXECUTE FUNCTION remove_like_trigger();

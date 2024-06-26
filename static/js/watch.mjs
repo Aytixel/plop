@@ -1,5 +1,6 @@
 import "/component/video-player/video-player.mjs"
-import { formatviews } from "./utils/views.mjs"
+import { formatViews } from "./utils/views.mjs"
+import { formatCount } from "./utils/count.mjs"
 import { VideoSource } from "./video-source.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
@@ -9,6 +10,7 @@ const time_ago = new TimeAgo('fr')
 class VideoInfo {
     #description = document.getElementById("video_info_description")
     #views = document.getElementById("video_info_views")
+    #likes = document.getElementById("video_info_likes")
     #time = document.getElementById("video_info_time")
     #show_more = document.getElementById("video_info_show_more")
 
@@ -16,13 +18,36 @@ class VideoInfo {
         show_more: false,
         date: null,
         views: null,
+        likes: null,
+        liked: null,
     }
 
     constructor(video_metadata) {
         this.date = video_metadata.date
         this.views = video_metadata.views
+        this.likes = video_metadata.likes
+        this.liked = video_metadata.liked
 
         this.#show_more.addEventListener("click", () => this.showMore = !this.showMore)
+        this.#likes.addEventListener("click", async () => {
+            if (this.liked) {
+                await this.removeLike()
+                this.likes -= 1
+                this.liked = false
+            } else {
+                await this.addLike()
+                this.likes += 1
+                this.liked = true
+            }
+        })
+    }
+
+    async addLike() {
+        return fetch(`/like/${video_metadata.uuid}`, { method: "post" })
+    }
+
+    async removeLike() {
+        return fetch(`/like/${video_metadata.uuid}`, { method: "delete" })
     }
 
     set showMore(show_more) {
@@ -53,13 +78,36 @@ class VideoInfo {
 
     set views(views) {
         if (this.#info.views != views) {
-            this.#views.textContent = formatviews(views) || this.#views.textContent
+            this.#views.textContent = formatViews(views) || this.#views.textContent
             this.#info.views = views
         }
     }
 
     get views() {
         return this.#info.views
+    }
+
+    set likes(likes) {
+        if (this.#info.likes != likes) {
+            this.#likes.children[2].textContent = formatCount(likes) || this.#likes.textContent
+            this.#info.likes = likes
+        }
+    }
+
+    get likes() {
+        return this.#info.likes
+    }
+
+    set liked(liked) {
+        if (this.#info.liked != liked) {
+            this.#likes.children[0].style.display = liked ? "none" : "block"
+            this.#likes.children[1].style.display = liked ? "block" : "none"
+            this.#info.liked = liked
+        }
+    }
+
+    get liked() {
+        return this.#info.liked
     }
 }
 

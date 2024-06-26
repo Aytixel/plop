@@ -9,8 +9,8 @@ use clerk_rs::{
 pub mod channel;
 pub mod video;
 
-pub async fn get_authentication_data(req: &HttpRequest, clerk: &Clerk) -> Option<ClerkJwt> {
-    let Some(access_token) = req.cookie("__session") else {
+pub async fn get_authentication_data(request: &HttpRequest, clerk: &Clerk) -> Option<ClerkJwt> {
+    let Some(access_token) = request.cookie("__session") else {
         return None;
     };
     let Ok(jwks) = Jwks::get_jwks(clerk).await else {
@@ -27,9 +27,10 @@ pub async fn get_authentication_data(req: &HttpRequest, clerk: &Clerk) -> Option
         .flatten()
 }
 
-pub async fn get_gorse_user_id(req: &HttpRequest, clerk: &Clerk) -> String {
-    get_authentication_data(req, clerk).await.map_or(
-        req.connection_info()
+pub async fn get_gorse_user_id(request: &HttpRequest, clerk: &Clerk) -> String {
+    get_authentication_data(request, clerk).await.map_or(
+        request
+            .connection_info()
             .peer_addr()
             .unwrap_or("global")
             .to_string(),

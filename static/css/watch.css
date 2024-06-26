@@ -49,11 +49,20 @@ video-player {
     text-wrap: nowrap;
 }
 
+#video_info_bar {
+    display: grid;
+    align-items: center;
+    grid-template-columns: auto 1fr auto;
+    gap: .5em;
+
+    margin-top: 1em;
+}
+
 #video_info_channel {
     display: flex;
     gap: .75em;
 
-    margin-top: 1em;
+    margin-right: 1em;
 
     color: rgb(var(--color-dark));
 }

@@ -160,6 +160,8 @@ async fn main() -> anyhow::Result<()> {
             .wrap(middleware::NormalizePath::trim())
             .wrap(middleware::Compress::default())
             .service(service::index::get)
+            .service(service::like::uuid::post)
+            .service(service::like::uuid::delete)
             .service(service::results::get)
             .service(service::thumbnail::uuid::get)
             .service(service::upload::get)

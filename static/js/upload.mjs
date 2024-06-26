@@ -1,6 +1,6 @@
 import "/component/video-player/video-player.mjs"
 import "/component/video-preview/video-preview.mjs"
-import { formatviews } from "./utils/views.mjs"
+import { formatViews } from "./utils/views.mjs"
 import { Encoder } from "./encoder.mjs"
 
 TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
@@ -49,7 +49,7 @@ function video_list_item_element_add_event(video_list_item_element) {
 for (const video of video_list_element.children) {
     const views_element = video.getElementsByClassName("views")[0]
 
-    views_element.textContent = formatviews(+views_element.dataset.views)
+    views_element.textContent = formatViews(+views_element.dataset.views)
 
     const date_element = video.getElementsByTagName("time")[0]
 
@@ -174,7 +174,7 @@ video_upload_form_element.addEventListener("submit", async e => {
     const views_element = document.createElement("span")
 
     views_element.classList.add("views")
-    views_element.textContent = formatviews(0)
+    views_element.textContent = formatViews(0)
     top_element.append(views_element)
 
     const time_element = document.createElement("time")
