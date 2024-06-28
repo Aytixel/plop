@@ -224,21 +224,15 @@ async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Resu
     let video = find_video(uuid, &data.db_connection).await?;
     let resolutions = get_resolutions(&video, VideoUploadState::ne, VideoUploadState::Unavailable);
 
-    remove_file(format!("./thumbnail/{uuid}.webp"))
-        .await
-        .map_err(|_| ErrorInternalServerError("Unable delete the thumbnail"))?;
+    remove_file(format!("./thumbnail/{uuid}.webp")).await.ok();
 
     for resolution in &resolutions {
         remove_file(format!("./video/{resolution}/{uuid}.webm"))
             .await
-            .map_err(|_| {
-                ErrorInternalServerError(format!(
-                    "Unable delete the video file for the {resolution}p resolution"
-                ))
-            })?;
+            .ok();
     }
 
-    let (_, gorse, db) = join3(
+    let _ = join3(
         data.redis_client.del::<RedisValue, _>(
             resolutions
                 .iter()
@@ -249,11 +243,6 @@ async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Resu
         video.delete(&data.db_connection),
     )
     .await;
-
-    gorse.map_err(|_| {
-        ErrorInternalServerError("Unable to remove videos from the recommendation base")
-    })?;
-    db.map_err(|_| ErrorInternalServerError("Unable delete the video from the database"))?;
 
     Ok(())
 }
@@ -276,7 +265,7 @@ async fn delete(
     }
 
     data.video_index
-        .delete_documents(&payload.uuids)
+        .delete_documents(&uuids)
         .await
         .map_err(|_| ErrorInternalServerError("Unable to remove videos from the search base"))?
         .wait_for_completion(&data.meillisearch_client, None, None)
