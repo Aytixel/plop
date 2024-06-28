@@ -19,7 +19,10 @@ peer.on("open", () => {
     canvas.width = 0
     canvas.height = 0
 
-    const call = peer.call(video_player_element.dataset.uuid, canvas.captureStream(1))
+    const stream = canvas.captureStream(1)
+    const call = peer.call(video_player_element.dataset.uuid, stream)
+
+    stream.removeTrack(stream.getVideoTracks()[0])
 
     call.on("stream", stream => video_player.srcObject = stream)
 })
