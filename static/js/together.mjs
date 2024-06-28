@@ -23,4 +23,3 @@ peer.on("open", () => {
 
     call.on("stream", stream => video_player.srcObject = stream)
 })
-

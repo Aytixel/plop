@@ -143,6 +143,13 @@ watch_together_button.addEventListener("click", () => {
         const canvas = new OffscreenCanvas(video_player.videoWidth, video_player.videoHeight)
         const context = canvas.getContext("2d")
 
+        if ("mozCaptureStream" in HTMLMediaElement.prototype) {
+            const audio_context = new AudioContext()
+            const media_stream_source = audio_context.createMediaStreamSource(stream)
+
+            media_stream_source.connect(audio_context.destination)
+        }
+
         peer.on("open", id => {
             watch_together_button.children[0].style.display = "none"
             watch_together_button.children[1].style.display = "block"
