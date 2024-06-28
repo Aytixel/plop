@@ -1,6 +1,7 @@
 pub mod index;
 pub mod like;
 pub mod results;
+pub mod share;
 pub mod thumbnail;
 pub mod together;
 pub mod upload;

@@ -143,6 +143,8 @@ watch_together_button.addEventListener("click", () => {
         const canvas = new OffscreenCanvas(video_player.videoWidth, video_player.videoHeight)
         const context = canvas.getContext("2d")
 
+        fetch(`/share/${video_metadata.uuid}`, { method: "post" })
+
         if ("mozCaptureStream" in HTMLMediaElement.prototype) {
             const audio_context = new AudioContext()
             const media_stream_source = audio_context.createMediaStreamSource(stream)

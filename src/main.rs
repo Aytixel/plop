@@ -163,6 +163,7 @@ async fn main() -> anyhow::Result<()> {
             .service(service::like::uuid::post)
             .service(service::like::uuid::delete)
             .service(service::results::get)
+            .service(service::share::uuid::post)
             .service(service::thumbnail::uuid::get)
             .service(service::together::uuid::get)
             .service(service::upload::get)

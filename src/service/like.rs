@@ -6,7 +6,7 @@ use actix_web::{
 };
 use actix_web_validator5::Path;
 use chrono::{DateTime, Utc};
-use futures::future::join;
+use futures::{future::join, FutureExt};
 use gorse_rs::Feedback;
 use sea_orm::{ActiveModelTrait, Set};
 use serde::Deserialize;
@@ -15,8 +15,6 @@ use validator::Validate;
 use crate::{entity::like, util::get_authentication_data, AppState};
 
 pub mod uuid {
-    use futures::FutureExt;
-
     use super::*;
 
     #[derive(Deserialize, Validate, Debug)]
