@@ -508,7 +508,7 @@ class VideoPlayerElement extends HTMLElement {
         shadow.innerHTML = /*html*/`
             <div id="video_player" data-ambient_light="true" data-paused="true" data-ended="false" data-volume="high" data-fullscreen="false" tabindex="0" style="display: none">
                 <canvas width="256" height="144"></canvas>
-                <video autoplay="" playsinline="" width="${width}" height="${height}"></video>
+                <video playsinline="" width="${width}" height="${height}"></video>
                 <div id="video_player_overlay" data-show="false">
                     <div id="video_player_title">${title}</div>
                     <div id="video_player_controls">
