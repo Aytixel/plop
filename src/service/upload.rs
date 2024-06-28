@@ -195,19 +195,20 @@ async fn put(
         ..Default::default()
     };
 
-    let (video, _, file) = join3(
+    let (video, _) = join(
         video.insert(&data.db_connection),
         create_dir_all("./thumbnail/".to_string()),
-        OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(format!("./thumbnail/{}.webp", uuid)),
     )
     .await;
 
     video.map_err(|_| ErrorInternalServerError("Unable to insert new video"))?;
 
-    if let Ok(mut file) = file {
+    if let Ok(mut file) = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(format!("./thumbnail/{}.webp", uuid))
+        .await
+    {
         file.write(&thumbnail_data).await.ok();
     }
 
