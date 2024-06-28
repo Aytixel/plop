@@ -6,4 +6,6 @@ onmessage = e => {
         headers.set("Range", `bytes=${chunk.position}-`)
 
     fetch(`/upload/${chunk.video_uuid}/${chunk.resolution}`, { method: "POST", headers, body: chunk.data })
+
+    postMessage(chunk.resolution)
 }

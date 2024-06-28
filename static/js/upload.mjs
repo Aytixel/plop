@@ -138,7 +138,6 @@ video_upload_form_element.addEventListener("submit", async e => {
         params.tags = form_data.get("tags")
 
     const video_uuid = await (await fetch("/upload", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(params) })).text()
-    const worker = [new Worker("/js/upload-worker.js"), new Worker("/js/upload-worker.js")]
     const progress_elements = {
         video: document.getElementById("video_progress"),
         audio: document.getElementById("audio_progress"),
@@ -189,15 +188,58 @@ video_upload_form_element.addEventListener("submit", async e => {
     video_button_element.append(bottom_element)
     video_list_element.prepend(video_list_item_element)
 
+    const resolutions = [144, 240, 360, 480, 720, 1080, 1440]
     const resolution_elements = {}
 
-    for (const resolution of [144, 240, 360, 480, 720, 1080, 1440]) {
+    for (const resolution of resolutions) {
         const resolution_element = document.createElement("span")
         const is_encoding_resolution = video_encode_options_list.find(video_encode_options => video_encode_options.resolution == resolution) !== undefined
 
         resolution_element.textContent = `${resolution}p ${is_encoding_resolution ? "⚠️" : "🚫"}`
         resolution_elements[resolution] = resolution_element
         bottom_element.append(resolution_element)
+    }
+
+    const workers = []
+    const queues = resolutions.reduce((queues, resolution) => {
+        queues[resolution] = []
+
+        return queues
+    }, {})
+
+    function startWorker() {
+        for (const key in queues) {
+            if (queues[key].length && !queues[key][0].sent) {
+                for (const worker of workers) {
+                    if (!worker.working) {
+                        worker.working = true
+                        worker.worker.postMessage(queues[key][0].message, queues[key][0].transfer)
+                        queues[key][0].sent = true
+
+                        break
+                    }
+                }
+
+                break
+            }
+        }
+    }
+
+    function pushToQueue(resolution, message, transfer = []) {
+        queues[resolution].push({ message, transfer, sent: false })
+        startWorker()
+    }
+
+    for (let i = 0; i < 2; i++) {
+        const worker = { worker: new Worker("/js/upload-worker.js"), working: false }
+
+        worker.worker.addEventListener("message", e => {
+            queues[e.data].shift()
+            worker.working = false
+            startWorker()
+        })
+
+        workers.push(worker)
     }
 
     encoder.addEventListener("encodingdata", e => {
@@ -208,8 +250,7 @@ video_upload_form_element.addEventListener("submit", async e => {
             video_uuid
         }
 
-        worker[0].postMessage(chunk, [chunk.data])
-        worker.reverse()
+        pushToQueue(e.resolution, chunk, [chunk.data])
     })
     encoder.addEventListener("encodingended", e => {
         setTimeout(() => {
@@ -219,8 +260,7 @@ video_upload_form_element.addEventListener("submit", async e => {
             }
 
             resolution_elements[e.resolution].textContent = `${e.resolution}p ✅`
-            worker[0].postMessage(chunk)
-            worker.reverse()
+            pushToQueue(e.resolution, chunk)
         }, 200)
     })
     encoder.addEventListener("encodingprogress", e => {
@@ -233,6 +273,7 @@ video_upload_form_element.addEventListener("submit", async e => {
     })
 
     await encoder.encodeVideo(video_encode_options_list)
+    await Promise.all(workers.filter(worker => worker.working).map(worker => new Promise(resolve => worker.worker.addEventListener("message", resolve))))
 
     video_upload_progress.hidden = true
 
