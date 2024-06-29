@@ -88,6 +88,36 @@
                         </svg>
                         <span>Regarder ensemble</span>
                     </button>
+                    <button id="video_info_share" class="rounded collapse" aria-label="Partager">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M13 14H11C7.54202 14 4.53953 15.9502 3.03239 18.8107C3.01093 18.5433 3 18.2729 3 18C3 12.4772 7.47715 8 13 8V2.5L23.5 11L13 19.5V14ZM11 12H15V15.3078L20.3214 11L15 6.69224V10H13C10.5795 10 8.41011 11.0749 6.94312 12.7735C8.20873 12.2714 9.58041 12 11 12Z">
+                            </path>
+                        </svg>
+                        <span>Partager</span>
+                    </button>
+                    <dialog id="video_info_share_dialog">
+                        <h2>
+                            <span>Partager</span>
+                            <button id="video_info_share_close" class="rounded icon inverted" aria-label="Fermer">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M10.5859 12L2.79297 4.20706L4.20718 2.79285L12.0001 10.5857L19.793 2.79285L21.2072 4.20706L13.4143 12L21.2072 19.7928L19.793 21.2071L12.0001 13.4142L4.20718 21.2071L2.79297 19.7928L10.5859 12Z">
+                                    </path>
+                                </svg>
+                            </button>
+                        </h2>
+                        <div>
+                            <input id="video_info_share_link" type="text" readonly="" aria-label="Le lien de partage">
+                            <button id="video_info_share_copy" class="important"
+                                aria-label="Copier le lien de partage">Copier</button>
+                        </div>
+                        <hr>
+                        <label for="video_info_share_start_at">
+                            <input id="video_info_share_start_at" type="checkbox">
+                            Démarrer à <span></span>
+                        </label>
+                    </dialog>
                 </div>
                 <div id="video_info_description">
                     <div>

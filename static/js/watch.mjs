@@ -1,5 +1,6 @@
 import "/component/video-player/video-player.mjs"
 import { formatViews } from "./utils/views.mjs"
+import { formatDuration } from "./utils/duration.mjs"
 import { formatCount } from "./utils/count.mjs"
 import { VideoSource } from "./video-source.mjs"
 
@@ -11,6 +12,15 @@ class VideoInfo {
     #description = document.getElementById("video_info_description")
     #views = document.getElementById("video_info_views")
     #likes = document.getElementById("video_info_likes")
+    #watch_together = document.getElementById("video_info_watch_together")
+    #share = document.getElementById("video_info_share")
+    #share_dialog = {
+        dialog: document.getElementById("video_info_share_dialog"),
+        close: document.getElementById("video_info_share_close"),
+        link: document.getElementById("video_info_share_link"),
+        copy: document.getElementById("video_info_share_copy"),
+        start_at: document.getElementById("video_info_share_start_at"),
+    }
     #time = document.getElementById("video_info_time")
     #show_more = document.getElementById("video_info_show_more")
 
@@ -22,7 +32,7 @@ class VideoInfo {
         liked: null,
     }
 
-    constructor(video_metadata) {
+    constructor(video_metadata, video_player) {
         this.date = video_metadata.date
         this.views = video_metadata.views
         this.likes = video_metadata.likes
@@ -40,6 +50,73 @@ class VideoInfo {
                 this.liked = true
             }
         })
+
+        let shared = false
+
+        function sendShareFeedback() {
+            if (!shared) {
+                shared = true
+
+                fetch(`/share/${video_metadata.uuid}`, { method: "post" })
+            }
+        }
+
+        let watch_together_url = ""
+
+        this.#watch_together.addEventListener("click", () => {
+            if (!watch_together_url.length) {
+                const peer = new Peer()
+                const stream = video_player.captureStream()
+                const canvas = new OffscreenCanvas(video_player.videoWidth, video_player.videoHeight)
+                const context = canvas.getContext("2d")
+
+                sendShareFeedback()
+
+                if ("mozCaptureStream" in HTMLMediaElement.prototype) {
+                    const audio_context = new AudioContext()
+                    const media_stream_source = audio_context.createMediaStreamSource(stream)
+
+                    media_stream_source.connect(audio_context.destination)
+                }
+
+                peer.on("open", id => {
+                    this.#watch_together.children[0].style.display = "none"
+                    this.#watch_together.children[1].style.display = "block"
+                    watch_together_url = `${location.origin}/together/${id}`
+
+                    navigator.clipboard.writeText(watch_together_url)
+                })
+                peer.on("connection", connection => {
+                    connection.on("open", async () => {
+                        context.drawImage(video_player.video, 0, 0)
+
+                        connection.send(await canvas.convertToBlob({ type: "image/webp", quality: 0.85 }))
+                    })
+                })
+                peer.on("call", call => call.answer(stream))
+            }
+
+            navigator.clipboard.writeText(watch_together_url)
+        })
+
+        const update_link = () => this.#share_dialog.link.value = `${location.origin}/watch/${video_metadata.uuid}${this.#share_dialog.start_at.checked ? `&t=${video_player.currentTime}` : ""}`
+        const close_dialog = () => this.#share_dialog.dialog.close()
+
+        this.#share.addEventListener("click", () => {
+            sendShareFeedback()
+            update_link()
+            this.#share_dialog.start_at.nextSibling.nextSibling.textContent = formatDuration(video_player.currentTime)
+            this.#share_dialog.dialog.showModal()
+        })
+        this.#share_dialog.start_at.addEventListener("input", update_link)
+        this.#share_dialog.close.addEventListener("click", close_dialog)
+        this.#share_dialog.dialog.addEventListener("click", e => {
+            const rect = this.#share_dialog.dialog.getBoundingClientRect()
+
+            if (e.clientY < rect.top || e.clientY > rect.bottom || e.clientX < rect.left || e.clientX > rect.right)
+                close_dialog()
+        })
+        this.#share_dialog.copy.addEventListener("click", () => navigator.clipboard.writeText(this.#share_dialog.link.value))
     }
 
     async addLike() {
@@ -111,10 +188,11 @@ class VideoInfo {
     }
 }
 
-window.video_info = new VideoInfo(video_metadata)
-
 // load and manage video stream
 const video_player = document.querySelector("video-player").getPlayer(video_metadata)
+
+window.video_info = new VideoInfo(video_metadata, video_player)
+
 const response = await fetch(`/thumbnail/${video_metadata.uuid}`)
 const t0 = Date.now()
 const data = await response.blob()
@@ -131,43 +209,3 @@ video_player.preview = `/video/${video_metadata.uuid}/${video_metadata.resolutio
 
 window.video_source = video_source
 window.video_player = video_player
-
-// watch together
-const watch_together_button = document.getElementById("video_info_watch_together")
-let watch_together_url = ""
-
-watch_together_button.addEventListener("click", () => {
-    if (!watch_together_url.length) {
-        const peer = new Peer()
-        const stream = video_player.captureStream()
-        const canvas = new OffscreenCanvas(video_player.videoWidth, video_player.videoHeight)
-        const context = canvas.getContext("2d")
-
-        fetch(`/share/${video_metadata.uuid}`, { method: "post" })
-
-        if ("mozCaptureStream" in HTMLMediaElement.prototype) {
-            const audio_context = new AudioContext()
-            const media_stream_source = audio_context.createMediaStreamSource(stream)
-
-            media_stream_source.connect(audio_context.destination)
-        }
-
-        peer.on("open", id => {
-            watch_together_button.children[0].style.display = "none"
-            watch_together_button.children[1].style.display = "block"
-            watch_together_url = location.origin + `/together/${id}`
-
-            navigator.clipboard.writeText(watch_together_url)
-        })
-        peer.on("connection", connection => {
-            connection.on("open", async () => {
-                context.drawImage(video_player.video, 0, 0)
-
-                connection.send(await canvas.convertToBlob({ type: "image/webp", quality: 0.85 }))
-            })
-        })
-        peer.on("call", call => call.answer(stream))
-    }
-
-    navigator.clipboard.writeText(watch_together_url)
-})

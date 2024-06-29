@@ -52,10 +52,24 @@ video-player {
 #video_info_bar {
     display: grid;
     align-items: center;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr repeat(3, auto);
     gap: .5em;
 
     margin-top: 1em;
+}
+
+#video_info_share_dialog {
+    width: 30em;
+}
+
+#video_info_share_dialog>div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .5em;
+}
+
+#video_info_share_dialog hr {
+    margin: 1em 0;
 }
 
 #video_info_channel {
