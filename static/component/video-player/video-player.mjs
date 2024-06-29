@@ -142,6 +142,7 @@ class VideoPlayer extends EventTarget {
 
         this.#fullscreen_button.addEventListener("click", fullscreen)
         this.#video_player.addEventListener("dblclick", fullscreen)
+        document.addEventListener("fullscreenchange", () => this.fullscreen = this.fullscreen)
 
         // setup sliders and listen on sliders inputs
         this.#initInputRange(this.#progress_slider)
@@ -578,14 +579,8 @@ class VideoPlayerElement extends HTMLElement {
         const preview = shadow.querySelector("#video_player_preview")
         const updateSize = () => {
             requestAnimationFrame(() => {
-                if (player.dataset.fullscreen == "false") {
-                    video.style.width = this.clientWidth + "px"
-                    video.style.height = this.clientHeight + "px"
-                } else {
-                    video.style.width = window.innerWidth + "px"
-                    video.style.height = window.innerHeight + "px"
-                }
-
+                video.style.width = this.clientWidth + "px"
+                video.style.height = this.clientHeight + "px"
                 preview.style.maxHeight = preview.style.maxWidth = video.clientHeight * .25 + "px"
             })
         }

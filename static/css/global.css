@@ -19,7 +19,8 @@
     text-rendering: optimizeLegibility;
 }
 
-body {
+body,
+:not(:root):fullscreen::backdrop {
     color: rgb(var(--color-dark));
 
     background-color: rgb(var(--color-light));

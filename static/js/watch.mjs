@@ -189,7 +189,9 @@ class VideoInfo {
 }
 
 // load and manage video stream
-const video_player = document.querySelector("video-player").getPlayer(video_metadata)
+const video_player = document.querySelector("video-player").getPlayer(Object.assign({
+    fullscreen_element: document.getElementById("main_container")
+}, video_metadata))
 
 window.video_info = new VideoInfo(video_metadata, video_player)
 
