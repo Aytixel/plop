@@ -6,13 +6,16 @@ use actix_web::{
 };
 use actix_web_validator5::Path;
 use chrono::{DateTime, Utc};
-use futures::{future::join, FutureExt};
 use gorse_rs::Feedback;
 use sea_orm::{ActiveModelTrait, Set};
 use serde::Deserialize;
 use validator::Validate;
 
-use crate::{entity::like, util::get_authentication_data, AppState};
+use crate::{
+    entity::like,
+    util::{get_authentication_data, get_gorse_user_id, DEFAULT_GORSE_USER_ID},
+    AppState,
+};
 
 pub mod uuid {
     use super::*;
@@ -28,26 +31,36 @@ pub mod uuid {
         params: Path<PostLike>,
         data: Data<AppState<'_>>,
     ) -> actix_web::Result<impl Responder> {
-        if let Some(jwt) = get_authentication_data(&request, &data.clerk).await {
+        let jwt = get_authentication_data(&request, &data.clerk).await;
+        let user_id = get_gorse_user_id(&request, &jwt).await;
+
+        data.gorse_client
+            .insert_feedback(&vec![
+                Feedback {
+                    feedback_type: "like".to_string(),
+                    user_id,
+                    item_id: params.uuid.to_string(),
+                    timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
+                },
+                Feedback {
+                    feedback_type: "like".to_string(),
+                    user_id: DEFAULT_GORSE_USER_ID.to_string(),
+                    item_id: params.uuid.to_string(),
+                    timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
+                },
+            ])
+            .await
+            .ok();
+
+        if let Some(jwt) = jwt {
             let like = like::ActiveModel {
                 uuid: Set(params.uuid),
                 user_id: Set(jwt.sub.clone()),
             };
 
-            let (_, db) = join(
-                data.gorse_client
-                    .insert_feedback(&vec![Feedback {
-                        feedback_type: "like".to_string(),
-                        user_id: jwt.sub,
-                        item_id: params.uuid.to_string(),
-                        timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
-                    }])
-                    .boxed(),
-                like.insert(&data.db_connection),
-            )
-            .await;
-
-            db.map_err(|_| ErrorInternalServerError("Unable to add like"))?;
+            like.insert(&data.db_connection)
+                .await
+                .map_err(|_| ErrorInternalServerError("Unable to add like"))?;
         }
 
         Ok(HttpResponse::Ok())

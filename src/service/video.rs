@@ -31,6 +31,7 @@ use crate::{
         get_authentication_data, get_gorse_user_id,
         video::{find_video, VIDEO_REDIS_TIMEOUT},
         video::{get_resolution_availability, valid_resolution},
+        DEFAULT_GORSE_USER_ID,
     },
     AppState, MeilliDocument,
 };
@@ -307,13 +308,22 @@ pub mod uuid {
                             view_duration -= view_threshold;
 
                             let (_, video) = join(
-                                data.gorse_client.insert_feedback(&vec![Feedback {
-                                    feedback_type: "view".to_string(),
-                                    user_id,
-                                    item_id: params.uuid.to_string(),
-                                    timestamp: DateTime::<Utc>::from(SystemTime::now())
-                                        .to_rfc3339(),
-                                }]),
+                                data.gorse_client.insert_feedback(&vec![
+                                    Feedback {
+                                        feedback_type: "view".to_string(),
+                                        user_id,
+                                        item_id: params.uuid.to_string(),
+                                        timestamp: DateTime::<Utc>::from(SystemTime::now())
+                                            .to_rfc3339(),
+                                    },
+                                    Feedback {
+                                        feedback_type: "view".to_string(),
+                                        user_id: DEFAULT_GORSE_USER_ID.to_string(),
+                                        item_id: params.uuid.to_string(),
+                                        timestamp: DateTime::<Utc>::from(SystemTime::now())
+                                            .to_rfc3339(),
+                                    },
+                                ]),
                                 video::Entity::find_by_id(params.uuid).one(&data.db_connection),
                             )
                             .await;

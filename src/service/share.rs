@@ -8,7 +8,10 @@ use gorse_rs::Feedback;
 use serde::Deserialize;
 use validator::Validate;
 
-use crate::{util::get_authentication_data, AppState};
+use crate::{
+    util::{get_authentication_data, get_gorse_user_id, DEFAULT_GORSE_USER_ID},
+    AppState,
+};
 
 pub mod uuid {
     use super::*;
@@ -24,17 +27,26 @@ pub mod uuid {
         params: Path<PostShare>,
         data: Data<AppState<'_>>,
     ) -> actix_web::Result<impl Responder> {
-        if let Some(jwt) = get_authentication_data(&request, &data.clerk).await {
-            data.gorse_client
-                .insert_feedback(&vec![Feedback {
+        let jwt = get_authentication_data(&request, &data.clerk).await;
+        let user_id = get_gorse_user_id(&request, &jwt).await;
+
+        data.gorse_client
+            .insert_feedback(&vec![
+                Feedback {
                     feedback_type: "share".to_string(),
-                    user_id: jwt.sub,
+                    user_id,
                     item_id: params.uuid.to_string(),
                     timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
-                }])
-                .await
-                .ok();
-        }
+                },
+                Feedback {
+                    feedback_type: "share".to_string(),
+                    user_id: DEFAULT_GORSE_USER_ID.to_string(),
+                    item_id: params.uuid.to_string(),
+                    timestamp: DateTime::<Utc>::from(SystemTime::now()).to_rfc3339(),
+                },
+            ])
+            .await
+            .ok();
 
         Ok(HttpResponse::Ok())
     }

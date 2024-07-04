@@ -27,12 +27,14 @@ pub async fn get_authentication_data(request: &HttpRequest, clerk: &Clerk) -> Op
         .flatten()
 }
 
+pub const DEFAULT_GORSE_USER_ID: &str = "global";
+
 pub async fn get_gorse_user_id(request: &HttpRequest, jwt: &Option<ClerkJwt>) -> String {
     jwt.as_ref().map_or(
         request
             .connection_info()
             .peer_addr()
-            .unwrap_or("global")
+            .unwrap_or(DEFAULT_GORSE_USER_ID)
             .to_string(),
         |jwt| jwt.sub.clone(),
     )
