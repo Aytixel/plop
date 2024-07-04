@@ -99,7 +99,7 @@ class VideoInfo {
             navigator.clipboard.writeText(watch_together_url)
         })
 
-        const update_link = () => this.#share_dialog.link.value = `${location.origin}/watch/${video_metadata.uuid}${this.#share_dialog.start_at.checked ? `&t=${video_player.currentTime}` : ""}`
+        const update_link = () => this.#share_dialog.link.value = `${location.origin}/watch/${video_metadata.uuid}${this.#share_dialog.start_at.checked ? `?t=${video_player.currentTime}` : ""}`
         const close_dialog = () => this.#share_dialog.dialog.close()
 
         this.#share.addEventListener("click", () => {
