@@ -36,7 +36,7 @@ video_list_delete_element.addEventListener("click", async () => {
 
     const json = await response.json()
 
-    video_list.forEach(video => json.uuids.includes(video.dataset.uuid) && video.remove())
+    video_list.forEach(video => json.uuids.includes(video.dataset.uuid) && video.parentNode.remove())
 })
 
 function video_list_item_element_add_event(video_list_item_element) {
