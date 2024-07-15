@@ -129,7 +129,7 @@ export class Encoder extends EventTarget {
 
             for (const encode_options of encode_options_list) {
                 const video_encoder_config = {
-                    codec: "vp09.02.10.10.01",
+                    codec: "av01.0.12M.08",
                     width: encode_options.width,
                     height: encode_options.height,
                     bitrate: encode_options.width * encode_options.height * encode_options.framerate * this.#bitrate_multiplier,
@@ -211,7 +211,7 @@ export class Encoder extends EventTarget {
         if (this.#videoTracks.length) {
             return muxer_configs.map((muxer_config, index) => {
                 muxer_config.video = {
-                    codec: "V_VP9",
+                    codec: "V_AV1",
                     width: encode_options_list[index].width,
                     height: encode_options_list[index].height,
                     frameRate: encode_options_list[index].framerate,

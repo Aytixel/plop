@@ -1,4 +1,8 @@
-use std::{fs::File, io::Cursor, time::SystemTime};
+use std::{
+    fs::File,
+    io::{Seek, SeekFrom},
+    time::SystemTime,
+};
 
 use ::uuid::Uuid;
 use actix_files::NamedFile;
@@ -17,13 +21,15 @@ use fred::{
 };
 use futures::future::join;
 use gorse_rs::Feedback;
-use matroska_demuxer::{Frame, MatroskaFile, TrackType};
 use sea_orm::{ActiveModelTrait, EntityTrait};
 use serde::Deserialize;
 use serde_json::json;
-use tokio::task;
+use tokio::task::yield_now;
 use validator::Validate;
-use webm::mux::{AudioCodecId, Segment, Track, VideoCodecId, Writer};
+use webm_iterable::{
+    matroska_spec::{Master, MatroskaSpec, SimpleBlock},
+    WebmIterator, WebmWriter,
+};
 
 use crate::{
     entity::video,
@@ -109,152 +115,6 @@ pub mod uuid {
                     )
                     .await?;
 
-                    let (start_timestamp, end_timestamp, buffer) = task::spawn_blocking({
-                        let uuid = params.uuid.clone();
-                        let resolution = params.resolution.clone();
-                        let start_timestamp = params.start_timestamp.clone();
-                        let end_timestamp = params.end_timestamp.clone();
-
-                        move || -> Result<(u64, u64, Vec<u8>), &str> {
-                            let mut buffer = Vec::new();
-                            let writer = Writer::new(Cursor::new(&mut buffer));
-                            let mut segment =
-                                Segment::new(writer).ok_or("Unable to create video segment")?;
-                            let mut file = MatroskaFile::open(
-                                File::open(format!("./video/{}/{}.webm", resolution, uuid))
-                                    .map_err(|_| "Unable to open the file")?,
-                            )
-                            .map_err(|_| "Unable to read the file")?;
-                            let tracks = file.tracks();
-                            let mut video_track = tracks
-                                .iter()
-                                .find(|track| track.track_type() == TrackType::Video)
-                                .map(|track| {
-                                    let video = track.video().unwrap();
-                                    let video_track = segment.add_video_track(
-                                        video.pixel_width().get() as u32,
-                                        video.pixel_height().get() as u32,
-                                        Some(1),
-                                        VideoCodecId::VP9,
-                                    );
-
-                                    if let Some(codec_private) = track.codec_private() {
-                                        segment.set_codec_private(1, codec_private);
-                                    }
-
-                                    (track.track_number().get(), video_track)
-                                });
-                            let mut audio_track = tracks
-                                .iter()
-                                .find(|track| track.track_type() == TrackType::Audio)
-                                .map(|track| {
-                                    let audio = track.audio().unwrap();
-                                    let audio_track = segment.add_audio_track(
-                                        audio.sampling_frequency() as i32,
-                                        audio.channels().get() as i32,
-                                        Some(2),
-                                        AudioCodecId::Opus,
-                                    );
-
-                                    if let Some(codec_private) = track.codec_private() {
-                                        segment.set_codec_private(2, codec_private);
-                                    }
-
-                                    (track.track_number().get(), audio_track)
-                                });
-
-                            let timescale = file.info().timestamp_scale().get();
-                            let mut start_timestamp =
-                                start_timestamp / 1_000_000_000 * 1_000_000_000;
-                            let mut end_timestamp = end_timestamp / 1_000_000_000 * 1_000_000_000;
-                            let mut frame = Frame::default();
-
-                            if let Some((id, _)) = video_track {
-                                const MAX_FRAMERATE: u64 = 60;
-                                const MIN_FRAMETIME: u64 = 1_000_000_000 / MAX_FRAMERATE;
-
-                                let mut find_keyframe = |timestamp: &mut u64| {
-                                    let mut timestamp_offset = 0;
-
-                                    'find_keyframe: for _ in 0..MAX_FRAMERATE / 2 {
-                                        file.seek((*timestamp + timestamp_offset) / timescale)
-                                            .unwrap();
-
-                                        while let Ok(true) = file.next_frame(&mut frame) {
-                                            if id == frame.track {
-                                                if frame.is_keyframe.unwrap_or(false) {
-                                                    *timestamp = frame.timestamp * timescale;
-
-                                                    break 'find_keyframe;
-                                                } else {
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        file.seek((*timestamp - timestamp_offset) / timescale)
-                                            .unwrap();
-
-                                        while let Ok(true) = file.next_frame(&mut frame) {
-                                            if id == frame.track {
-                                                if frame.is_keyframe.unwrap_or(false) {
-                                                    *timestamp = frame.timestamp * timescale;
-
-                                                    break 'find_keyframe;
-                                                } else {
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        timestamp_offset += MIN_FRAMETIME;
-                                    }
-                                };
-
-                                find_keyframe(&mut start_timestamp);
-                                find_keyframe(&mut end_timestamp);
-                            }
-
-                            file.seek(start_timestamp / timescale).unwrap();
-
-                            loop {
-                                let Ok(true) = file.next_frame(&mut frame) else {
-                                    break;
-                                };
-
-                                let timestamp = frame.timestamp * timescale;
-
-                                if timestamp > end_timestamp {
-                                    break;
-                                }
-
-                                let keyframe = frame.is_keyframe.unwrap_or(false);
-                                let track_id = frame.track;
-
-                                if let Some((id, ref mut track)) = video_track {
-                                    if id == track_id {
-                                        track.add_frame(&frame.data, timestamp, keyframe);
-                                    }
-                                }
-
-                                if let Some((id, ref mut track)) = audio_track {
-                                    if id == track_id {
-                                        track.add_frame(&frame.data, timestamp, keyframe);
-                                    }
-                                }
-                            }
-
-                            segment
-                                .try_finalize(Some((end_timestamp - start_timestamp) / timescale))
-                                .map_err(|_| "Unable to finalize the video stream")?;
-
-                            Ok((start_timestamp, end_timestamp, buffer))
-                        }
-                    })
-                    .await
-                    .unwrap_or_else(|_| Err("Unable to create the video stream"))
-                    .map_err(|error| ErrorInternalServerError(error))?;
-
                     let video_timestamp_key =
                         format!("video:timestamp:{}:{}", params.uuid, params.resolution);
                     let last_frame_timestamp = match data
@@ -273,8 +133,7 @@ pub mod uuid {
                         }
                         Ok(Err(_)) | Err(_) => {
                             let video = find_video(&params.uuid, &data.db_connection).await?;
-                            let last_frame_timestamp =
-                                (video.duration.to_owned() * 1_000_000.0) as u64 * 1_000;
+                            let last_frame_timestamp = (video.duration.to_owned() * 1_000.0) as u64;
 
                             data.redis_client
                                 .set::<RedisValue, _, _>(
@@ -290,6 +149,99 @@ pub mod uuid {
                             last_frame_timestamp
                         }
                     };
+
+                    let mut input = File::open(format!(
+                        "./video/{}/{}.webm",
+                        params.resolution, params.uuid
+                    ))
+                    .map_err(|_| ErrorInternalServerError("Unable to read the file"))?;
+                    let mut keyframes: Vec<u64> = WebmIterator::new(&mut input, &[])
+                        .filter_map(|tag| match tag {
+                            Ok(MatroskaSpec::SimpleBlock(ref block)) => {
+                                let block = SimpleBlock::try_from(block).unwrap();
+
+                                (block.keyframe && block.track == 1 && block.timestamp != 0)
+                                    .then(|| block.timestamp as u64)
+                            }
+                            Ok(MatroskaSpec::CueTime(keyframe)) => Some(keyframe),
+                            _ => None,
+                        })
+                        .collect();
+
+                    keyframes.push(last_frame_timestamp);
+
+                    let start_timestamp = *keyframes
+                        .iter()
+                        .min_by_key(|keyframe| keyframe.abs_diff(params.start_timestamp))
+                        .unwrap_or(&params.start_timestamp);
+                    let end_timestamp = *keyframes
+                        .iter()
+                        .min_by_key(|keyframe| keyframe.abs_diff(params.end_timestamp))
+                        .unwrap_or(&params.end_timestamp);
+
+                    input.seek(SeekFrom::Start(0)).unwrap();
+
+                    let tag_iterator =
+                        WebmIterator::new(input, &[MatroskaSpec::Cues(Master::Start)]);
+                    let mut buffer = Vec::new();
+                    let mut tag_writer = WebmWriter::new(&mut buffer);
+                    let mut first_cluster = true;
+                    let mut cluster_timestamp = 0u64;
+                    let mut keyframe_timestamp = 0u64;
+
+                    for tag in tag_iterator {
+                        if let Ok(tag) = tag {
+                            match tag {
+                                MatroskaSpec::SimpleBlock(ref block) => {
+                                    let mut block = SimpleBlock::try_from(block).unwrap();
+                                    let timestamp = cluster_timestamp
+                                        .saturating_add_signed(block.timestamp as i64);
+
+                                    if timestamp >= start_timestamp && timestamp <= end_timestamp {
+                                        if block.keyframe && block.track == 1 {
+                                            keyframe_timestamp = timestamp;
+
+                                            if !first_cluster {
+                                                yield_now().await;
+                                                tag_writer
+                                                    .write(&MatroskaSpec::Cluster(Master::End))
+                                                    .unwrap();
+                                            }
+
+                                            first_cluster = false;
+
+                                            yield_now().await;
+                                            tag_writer
+                                                .write(&MatroskaSpec::Cluster(Master::Start))
+                                                .unwrap();
+                                            yield_now().await;
+                                            tag_writer
+                                                .write(&MatroskaSpec::Timestamp(timestamp))
+                                                .unwrap();
+                                        }
+
+                                        block.timestamp =
+                                            timestamp.saturating_sub(keyframe_timestamp) as i16;
+
+                                        yield_now().await;
+                                        tag_writer.write(&MatroskaSpec::from(block)).unwrap();
+                                    }
+                                }
+                                MatroskaSpec::Cluster(_) => {}
+                                MatroskaSpec::Timestamp(timestamp) => {
+                                    cluster_timestamp = timestamp;
+                                }
+                                MatroskaSpec::Cues(_) => {
+                                    tag_writer
+                                        .write(&MatroskaSpec::Cluster(Master::End))
+                                        .unwrap();
+                                }
+                                _ => {
+                                    tag_writer.write(&tag).unwrap();
+                                }
+                            }
+                        }
+                    }
 
                     {
                         // update views

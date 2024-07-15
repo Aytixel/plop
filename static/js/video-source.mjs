@@ -26,7 +26,7 @@ export class VideoSource extends MediaSource {
         this.#video.addEventListener("timeupdate", () => this.#start())
         this.#video.addEventListener("seeking", () => this.#start())
         this.addEventListener("sourceopen", () => {
-            const mime_type = `video/webm;codecs=\"vp9${this.hasAudio ? ",opus" : ""}\"`
+            const mime_type = `video/webm;codecs="av01.0.12M.08${this.hasAudio ? ",opus" : ""}"`
 
             this.#source_buffer = this.addSourceBuffer(mime_type)
             this.#source_buffer.mode = "segments"
@@ -42,7 +42,7 @@ export class VideoSource extends MediaSource {
 
                     const { range_start, range_end, data } = this.#chunk_buffer.shift()
 
-                    this.#source_buffer.appendWindowEnd = Math.min(range_end / 1_000_000_000, this.#video_metadata.duration)
+                    this.#source_buffer.appendWindowEnd = Math.min(range_end / 1_000, this.#video_metadata.duration)
                     this.#source_buffer.appendBuffer(data)
                 } else {
                     this.#appending_segment = false
@@ -112,7 +112,7 @@ export class VideoSource extends MediaSource {
 
         for (let i = start; i < start + this.#buffer_size && i < this.#loaded_resolution.length; i++) {
             if (this.#loaded_resolution[i] === null || this.#loaded_resolution[i] < this.resolution)
-                return { start: i * 1_000_000_000, end: (i + 1) * 1_000_000_000, resolution: this.resolution }
+                return { start: i * 1_000, end: (i + 1) * 1_000, resolution: this.resolution }
         }
 
         return null
@@ -166,8 +166,8 @@ export class VideoSource extends MediaSource {
 
             const { response, request_latency, range_start, range_end } = await this.#fetch(fetch_options)
             const { data, download_latency, speed } = await this.#read(response)
-            const start = Math.round(range_start / 1_000_000_000)
-            const end = Math.round(range_end / 1_000_000_000)
+            const start = Math.round(range_start / 1_000)
+            const end = Math.round(range_end / 1_000)
 
             for (let i = start; i < end; i++) {
                 this.#loaded_resolution[i] = fetch_options.resolution
