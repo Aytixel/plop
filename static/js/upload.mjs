@@ -3,7 +3,7 @@ import "/component/video-preview/video-preview.mjs"
 import { formatViews } from "./utils/views.mjs"
 import { Encoder } from "./encoder.mjs"
 
-TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
+TimeAgo.addDefaultLocale(await (await fetch("/js/libs/fr.json")).json())
 
 const time_ago = new TimeAgo('fr')
 

@@ -4,7 +4,7 @@ import { formatDuration } from "./utils/duration.mjs"
 import { formatCount } from "./utils/count.mjs"
 import { VideoSource } from "./video-source.mjs"
 
-TimeAgo.addDefaultLocale(await (await fetch("https://unpkg.com/javascript-time-ago@2.5/locale/fr.json")).json())
+TimeAgo.addDefaultLocale(await (await fetch("/js/libs/fr.json")).json())
 
 const time_ago = new TimeAgo('fr')
 

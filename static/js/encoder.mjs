@@ -1,4 +1,4 @@
-import { Muxer, StreamTarget } from "https://cdn.jsdelivr.net/npm/webm-muxer@3.1/+esm"
+import { Muxer, StreamTarget } from "/js/libs/webm-muxer.min.mjs"
 
 class EncodingDataEvent extends Event {
     resolution
