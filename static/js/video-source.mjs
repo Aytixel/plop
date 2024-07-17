@@ -1,10 +1,11 @@
 export class VideoSource extends MediaSource {
     #video
     #video_metadata
+    #speeds = []
     #source_buffer
     #resolution = 0
     #buffered
-    #buffer_size = 5
+    #buffer_size = 30
     #bitrate_coefficient = 1.5
     #chunk_buffer = []
     #appending_segment = false
@@ -20,8 +21,9 @@ export class VideoSource extends MediaSource {
         this.#video_metadata = video_metadata
         this.#loaded_resolution = new Array(Math.ceil(video_metadata.duration)).fill(null)
 
-        if (speed !== undefined) this.#setResolution(speed)
+        if (speed !== undefined) this.speed = speed
 
+        this.#setResolution()
         this.#video.addEventListener("play", () => this.#start())
         this.#video.addEventListener("timeupdate", () => this.#start())
         this.#video.addEventListener("seeking", () => this.#start())
@@ -56,6 +58,18 @@ export class VideoSource extends MediaSource {
 
     get hasAudio() {
         return this.#video_metadata.has_audio
+    }
+
+    set speed(speed) {
+        this.#speeds.push(speed)
+
+        if (this.#speeds.length > 2) this.#speeds.shift()
+    }
+
+    get speed() {
+        let x = 0
+
+        return this.#speeds.map((a, index) => a * (x += (index * 2 + 1))).reduce((a, b) => a + b) / x
     }
 
     set resolution(resolution) {
@@ -103,16 +117,21 @@ export class VideoSource extends MediaSource {
         )
     }
 
-    #setResolution(speed) {
-        this.#resolution = Math.max(this.#video_metadata.bitrates.findLastIndex(bitrate => bitrate * this.#bitrate_coefficient < speed), 0)
+    #setResolution() {
+        this.#resolution = Math.max(this.#video_metadata.bitrates.findLastIndex(bitrate => bitrate * this.#bitrate_coefficient < this.speed), 0)
     }
 
     #getFetchOptions() {
         const start = Math.floor(this.#video.currentTime)
 
         for (let i = start; i < start + this.#buffer_size && i < this.#loaded_resolution.length; i++) {
-            if (this.#loaded_resolution[i] === null || this.#loaded_resolution[i] < this.resolution)
-                return { start: i * 1_000, end: (i + 1) * 1_000, resolution: this.resolution }
+            if (this.#loaded_resolution[i] === null || this.#loaded_resolution[i] < this.resolution) {
+                let j = (i + 1)
+
+                while (j < start + this.#buffer_size && j < this.#loaded_resolution.length && this.#loaded_resolution[i] === null && this.#loaded_resolution[i] < this.resolution) j++
+
+                return { start: i * 1_000, end: Math.min(j, i + Math.floor(this.speed / this.bitrate)) * 1_000, resolution: this.resolution }
+            }
         }
 
         return null
@@ -173,8 +192,10 @@ export class VideoSource extends MediaSource {
                 this.#loaded_resolution[i] = fetch_options.resolution
             }
 
+            this.speed = speed
+
             this.#log(speed, download_latency, request_latency, range_start, range_end)
-            this.#setResolution(speed)
+            this.#setResolution()
             this.#nextSegment()
             this.#appendSegment(range_start, range_end, data)
         } catch (error) {
