@@ -79,7 +79,7 @@
 
     color: rgb(var(--color-fixed-light));
 
-    background: linear-gradient(0deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 15%, #0000 90%, rgb(var(--color-fixed-dark) / .5) 100%);
+    background: linear-gradient(0deg, #0008 0%, #0000 15%, #0000 90%, #0008 100%);
 
     opacity: 0;
 
@@ -87,7 +87,7 @@
 }
 
 #video_player[data-fullscreen="false"] #video_player_overlay {
-    background: linear-gradient(0deg, rgb(var(--color-fixed-dark) / .5) 0%, #0000 15%, #0000 100%);
+    background: linear-gradient(0deg, #0008 0%, #0000 15%, #0000 100%);
 }
 
 #video_player[data-paused="true"] #video_player_overlay,
