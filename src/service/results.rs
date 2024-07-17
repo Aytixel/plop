@@ -67,6 +67,11 @@ async fn get(
             "channel_info".to_string(),
             channels_info[result_object["user_id"].as_str().unwrap()].clone(),
         );
+        result_object
+            .entry("timestamp".to_string())
+            .and_modify(|timestamp| {
+                *timestamp = format!("{}Z", timestamp.as_str().unwrap()).into()
+            });
     }
 
     Ok(HttpResponse::Ok()
