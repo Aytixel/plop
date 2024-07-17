@@ -88,6 +88,10 @@
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr auto;
     }
+
+    #video_upload_create_thumbnail {
+        grid-column: span 2;
+    }
 }
 
 /*
