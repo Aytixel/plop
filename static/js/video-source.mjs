@@ -6,6 +6,7 @@ export class VideoSource extends MediaSource {
     #resolution = 0
     #buffered
     #buffer_size = 30
+    #buffer_min_size = 10
     #bitrate_coefficient = 1.5
     #chunk_buffer = []
     #appending_segment = false
@@ -126,6 +127,8 @@ export class VideoSource extends MediaSource {
 
         for (let i = start; i < start + this.#buffer_size && i < this.#loaded_resolution.length; i++) {
             if (this.#loaded_resolution[i] === null || this.#loaded_resolution[i] < this.resolution) {
+                if (start < i - this.#buffer_min_size) return null
+
                 let j = (i + 1)
 
                 while (j < start + this.#buffer_size && j < this.#loaded_resolution.length && this.#loaded_resolution[i] === null && this.#loaded_resolution[i] < this.resolution) j++
