@@ -155,13 +155,23 @@ pub mod uuid {
                         params.resolution, params.uuid
                     ))
                     .map_err(|_| ErrorInternalServerError("Unable to read the file"))?;
+                    let mut cluster_timestamp = 0u64;
                     let mut keyframes: Vec<u64> = WebmIterator::new(&mut input, &[])
                         .filter_map(|tag| match tag {
                             Ok(MatroskaSpec::SimpleBlock(ref block)) => {
                                 let block = SimpleBlock::try_from(block).unwrap();
 
-                                (block.keyframe && block.track == 1 && block.timestamp != 0)
-                                    .then(|| block.timestamp as u64)
+                                (block.keyframe && block.track == 1 && block.timestamp != 0).then(
+                                    || {
+                                        cluster_timestamp
+                                            .saturating_add_signed(block.timestamp as i64)
+                                    },
+                                )
+                            }
+                            Ok(MatroskaSpec::Timestamp(timestamp)) => {
+                                cluster_timestamp = timestamp;
+
+                                None
                             }
                             Ok(MatroskaSpec::CueTime(keyframe)) => Some(keyframe),
                             _ => None,
