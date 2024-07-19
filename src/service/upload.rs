@@ -15,13 +15,13 @@ use actix_web::{
 };
 use actix_web_validator5::{Json, Path};
 use data_url::DataUrl;
-use file_format::FileFormat;
 use fred::{
     interfaces::KeysInterface,
     types::{Expiration, RedisValue},
 };
 use futures::future::{join, join3};
 use gorse_rs::Item;
+use infer::{get_from_path, image::is_avif};
 use sea_orm::{
     ActiveEnum, ActiveModelTrait, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
     Set,
@@ -153,9 +153,8 @@ async fn put(
         .decode_to_vec()
         .map_err(|_| ErrorInternalServerError("Unable to extract thumbnail data"))?
         .0;
-    let file_format = FileFormat::from_bytes(&thumbnail_data);
 
-    if file_format.media_type() != "image/avif" && file_format.media_type() != "image/png" {
+    if is_avif(&thumbnail_data) {
         return Err(ErrorInternalServerError("Wrong thumbnail mime type"));
     }
 
@@ -359,11 +358,10 @@ pub mod uuid {
             }
 
             if !has_data {
-                let video_file_format = FileFormat::from_file(&path)
-                    .map_err(|_| ErrorInternalServerError("Unable to open the file"))?;
-                let video_upload_state = if video_file_format.media_type() == "video/webm"
-                    || video_file_format.media_type() == "application/x-ebml"
-                {
+                let video_file_format = get_from_path(&path)
+                    .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
+                    .ok_or(ErrorInternalServerError("Unable to find a mime type"))?;
+                let video_upload_state = if video_file_format.mime_type() == "video/webm" {
                     let tags: Vec<String> = video.tags.clone().map_or(Vec::new(), |tags| {
                         tags.split(",").map(str::to_string).collect()
                     });
