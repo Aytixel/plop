@@ -153,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
 
         App::new()
             .app_data(state.clone())
-            .app_data(JsonConfig::default().limit(307200))
+            .app_data(JsonConfig::default().limit(2_000_000))
             .wrap(Analytics::new(analytics_api_key.clone()))
             .wrap(cors)
             .wrap(middleware::DefaultHeaders::new().add(("Cache-Control", "max-age=31536000")))
