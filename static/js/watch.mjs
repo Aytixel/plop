@@ -90,7 +90,7 @@ class VideoInfo {
                     connection.on("open", async () => {
                         context.drawImage(video_player.video, 0, 0)
 
-                        connection.send(await canvas.convertToBlob({ type: "image/webp", quality: 0.85 }))
+                        connection.send(await canvas.convertToBlob({ type: "image/avif", quality: 0.85 }))
                     })
                 })
                 peer.on("call", call => call.answer(stream))

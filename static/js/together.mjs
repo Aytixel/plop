@@ -10,7 +10,7 @@ peer.on("open", () => {
 
     connection.on("open", () => {
         connection.on("data", data => {
-            video_player.poster = URL.createObjectURL(new Blob([data], { type: "image/webp" }))
+            video_player.poster = URL.createObjectURL(new Blob([data], { type: "image/avif" }))
         })
     })
 

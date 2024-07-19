@@ -85,7 +85,7 @@ function encodeThumbnail(media, original_width, original_height) {
     canvas.height = height
     canvas_context.drawImage(media, 0, 0, width, height)
 
-    return canvas.toDataURL("image/webp", 0.85)
+    return canvas.toDataURL("image/avif", 0.85)
 }
 
 function encodeThumbnailFromImageUrl(url) {

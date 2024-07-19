@@ -153,8 +153,9 @@ async fn put(
         .decode_to_vec()
         .map_err(|_| ErrorInternalServerError("Unable to extract thumbnail data"))?
         .0;
+    let file_format = FileFormat::from_bytes(&thumbnail_data);
 
-    if FileFormat::from_bytes(&thumbnail_data).media_type() != "image/webp" {
+    if file_format.media_type() != "image/avif" && file_format.media_type() != "image/png" {
         return Err(ErrorInternalServerError("Wrong thumbnail mime type"));
     }
 
@@ -206,7 +207,7 @@ async fn put(
     if let Ok(mut file) = OpenOptions::new()
         .write(true)
         .create(true)
-        .open(format!("./thumbnail/{}.webp", uuid))
+        .open(format!("./thumbnail/{}.avif", uuid))
         .await
     {
         file.write(&thumbnail_data).await.ok();
@@ -224,7 +225,7 @@ async fn delete_video(uuid: &Uuid, data: &Data<AppState<'_>>) -> actix_web::Resu
     let video = find_video(uuid, &data.db_connection).await?;
     let resolutions = get_resolutions(&video, VideoUploadState::ne, VideoUploadState::Unavailable);
 
-    remove_file(format!("./thumbnail/{uuid}.webp")).await.ok();
+    remove_file(format!("./thumbnail/{uuid}.avif")).await.ok();
 
     for resolution in &resolutions {
         remove_file(format!("./video/{resolution}/{uuid}.webm"))

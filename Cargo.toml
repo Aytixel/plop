@@ -23,7 +23,7 @@ rustls = "0.22"
 rustls-pemfile = "2"
 uuid = { version = "1", features = ["v4", "fast-rng"] }
 data-url = "0.3"
-file-format = "0.24"
+file-format = "0.25.0"
 webm-iterable = "0.6.2"
 sea-orm = { version = "0.12", features = [
     "sqlx-postgres",

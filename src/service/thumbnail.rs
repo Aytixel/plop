@@ -18,7 +18,7 @@ pub mod uuid {
         request: HttpRequest,
         params: Path<GetThumbnail>,
     ) -> actix_web::Result<impl Responder> {
-        Ok(NamedFile::open(format!("./thumbnail/{}.webp", params.uuid))
+        Ok(NamedFile::open(format!("./thumbnail/{}.avif", params.uuid))
             .map(|file| file.use_etag(false).use_last_modified(false))
             .map_err(|_| ErrorInternalServerError("Unable to open the file"))?
             .into_response(&request)
