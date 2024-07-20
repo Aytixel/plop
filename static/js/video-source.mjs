@@ -6,7 +6,10 @@ export class VideoSource extends MediaSource {
     #resolution = 0
     #buffered
     #buffer_size = 30
-    #buffer_min_size = 10
+    #buffer_max_load_size = 20
+    #buffer_min_load_size = 10
+    #buffer_load_size = this.#buffer_min_load_size
+    #buffering = true
     #bitrate_coefficient = 1.5
     #chunk_buffer = []
     #appending_segment = false
@@ -127,7 +130,9 @@ export class VideoSource extends MediaSource {
 
         for (let i = start; i < start + this.#buffer_size && i < this.#loaded_resolution.length; i++) {
             if (this.#loaded_resolution[i] === null || this.#loaded_resolution[i] < this.resolution) {
-                if (start < i - this.#buffer_min_size) return null
+                if (!this.#buffering && start < i - this.#buffer_load_size) return null
+
+                this.#buffering = true
 
                 let j = (i + 1)
 
@@ -136,6 +141,8 @@ export class VideoSource extends MediaSource {
                 return { start: i * 1_000, end: Math.min(j, i + Math.floor(this.speed / this.bitrate)) * 1_000, resolution: this.resolution }
             }
         }
+
+        this.#buffering = false
 
         return null
     }
@@ -196,6 +203,7 @@ export class VideoSource extends MediaSource {
             }
 
             this.speed = speed
+            this.#buffer_load_size = Math.min(this.#buffer_min_load_size + (download_latency + request_latency) / 1_000, this.#buffer_max_load_size)
 
             this.#log(speed, download_latency, request_latency, range_start, range_end)
             this.#setResolution()
