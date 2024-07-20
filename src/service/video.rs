@@ -238,20 +238,18 @@ pub mod uuid {
                                     }
                                 }
                                 MatroskaSpec::Cluster(_) => {}
-                                MatroskaSpec::Timestamp(timestamp) => {
-                                    cluster_timestamp = timestamp;
-                                }
+                                MatroskaSpec::Timestamp(timestamp) => cluster_timestamp = timestamp,
                                 MatroskaSpec::Cues(_) => {
                                     tag_writer
                                         .write(&MatroskaSpec::Cluster(Master::End))
                                         .unwrap();
                                 }
-                                _ => {
-                                    tag_writer.write(&tag).unwrap();
-                                }
+                                _ => tag_writer.write(&tag).unwrap(),
                             }
                         }
                     }
+
+                    tag_writer.flush().unwrap();
 
                     {
                         // update views
