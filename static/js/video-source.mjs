@@ -31,6 +31,21 @@ export class VideoSource extends MediaSource {
         this.#video.addEventListener("play", () => this.#start())
         this.#video.addEventListener("timeupdate", () => this.#start())
         this.#video.addEventListener("seeking", () => this.#start())
+        this.#video.addEventListener("progress", () => {
+            requestAnimationFrame(() => {
+                let bufferd_index = 0
+
+                if (this.buffered.length) {
+                    for (let i = 0; i < this.#loaded_resolution.length; i++) {
+                        const start = Math.round(this.buffered.start(bufferd_index))
+                        const end = Math.round(this.buffered.end(bufferd_index))
+
+                        if (i >= end && bufferd_index < this.buffered.length - 1) bufferd_index++
+                        if (i < start || i >= end) this.#loaded_resolution[i] = null
+                    }
+                }
+            })
+        })
         this.addEventListener("sourceopen", () => {
             const mime_type = `video/webm;codecs="av01.0.12M.08${this.hasAudio ? ",opus" : ""}"`
 
