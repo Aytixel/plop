@@ -28,7 +28,7 @@ use tokio::task::yield_now;
 use validator::Validate;
 use webm_iterable::{
     matroska_spec::{Master, MatroskaSpec, SimpleBlock},
-    WebmIterator, WebmWriter,
+    WebmIterator, WebmWriter, WriteOptions,
 };
 
 use crate::{
@@ -193,9 +193,8 @@ pub mod uuid {
 
                     let tag_iterator =
                         WebmIterator::new(input, &[MatroskaSpec::Cues(Master::Start)]);
-                    let mut buffer = Vec::new();
-                    let mut tag_writer = WebmWriter::new(&mut buffer);
-                    let mut first_cluster = true;
+                    let mut tag_writer = WebmWriter::new(Vec::new());
+                    let mut first_cluster = Some(Vec::with_capacity(2));
                     let mut cluster_timestamp = 0u64;
                     let mut keyframe_timestamp = 0u64;
 
@@ -211,14 +210,14 @@ pub mod uuid {
                                         if block.keyframe && block.track == 1 {
                                             keyframe_timestamp = timestamp;
 
-                                            if !first_cluster {
+                                            let first_cluster = first_cluster.take();
+
+                                            if first_cluster.is_none() {
                                                 yield_now().await;
                                                 tag_writer
                                                     .write(&MatroskaSpec::Cluster(Master::End))
                                                     .unwrap();
                                             }
-
-                                            first_cluster = false;
 
                                             yield_now().await;
                                             tag_writer
@@ -228,13 +227,29 @@ pub mod uuid {
                                             tag_writer
                                                 .write(&MatroskaSpec::Timestamp(timestamp))
                                                 .unwrap();
+
+                                            if let Some(first_cluster) = first_cluster {
+                                                for block in first_cluster {
+                                                    yield_now().await;
+                                                    tag_writer.write(&block).unwrap();
+                                                }
+                                            }
                                         }
 
                                         block.timestamp =
                                             timestamp.saturating_sub(keyframe_timestamp) as i16;
 
-                                        yield_now().await;
-                                        tag_writer.write(&MatroskaSpec::from(block)).unwrap();
+                                        if let Some(first_cluster) = &mut first_cluster {
+                                            first_cluster.push(MatroskaSpec::from(block));
+                                        } else {
+                                            yield_now().await;
+                                            tag_writer
+                                                .write_advanced(
+                                                    &MatroskaSpec::from(block),
+                                                    WriteOptions::set_size_byte_count(8),
+                                                )
+                                                .unwrap();
+                                        }
                                     }
                                 }
                                 MatroskaSpec::Cluster(_) => {}
@@ -323,19 +338,21 @@ pub mod uuid {
                         // update views
                     }
 
-                    Ok(HttpResponse::with_body(StatusCode::OK, buffer)
-                        .customize()
-                        .insert_header(("Content-Type", "video/webm"))
-                        .insert_header((
-                            "X-Content-Range",
-                            format!(
-                                "{}-{}/{}",
-                                start_timestamp,
-                                end_timestamp,
-                                last_frame_timestamp.max(end_timestamp)
-                            ),
-                        ))
-                        .respond_to(&request))
+                    Ok(
+                        HttpResponse::with_body(StatusCode::OK, tag_writer.into_inner().unwrap())
+                            .customize()
+                            .insert_header(("Content-Type", "video/webm"))
+                            .insert_header((
+                                "X-Content-Range",
+                                format!(
+                                    "{}-{}/{}",
+                                    start_timestamp,
+                                    end_timestamp,
+                                    last_frame_timestamp.max(end_timestamp)
+                                ),
+                            ))
+                            .respond_to(&request),
+                    )
                 }
             }
         }
