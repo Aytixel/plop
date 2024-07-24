@@ -120,7 +120,11 @@ export class Encoder extends EventTarget {
             }
 
             return encode_options
-        }).filter((encode_options, index) => index == 0 || encode_options.resolution <= Math.min(width, height))
+        }).filter((encode_options, index) => {
+            return index == 0 ||
+                encode_options.resolution <= Math.min(width, height) ||
+                encode_options.resolution / 9 * 16 <= Math.max(width, height)
+        })
     }
 
     async #getVideoConfigs(encode_options_list) {
@@ -154,19 +158,14 @@ export class Encoder extends EventTarget {
 
     async #getAudioConfig() {
         if (this.#audioTracks.length) {
-            const audio_processor = new MediaStreamTrackProcessor(this.#audioTracks[0])
-            const audio_reader = audio_processor.readable.getReader()
+            const audio_context = new AudioContext()
+            const audio_buffer = await audio_context.decodeAudioData(await (await fetch(this.#url)).arrayBuffer())
 
-            this.#video.play()
-
-            const audio_data = (await audio_reader.read()).value
-
-            this.#video.pause()
-            this.#video.currentTime = 0
+            audio_context.close()
 
             return {
-                numberOfChannels: audio_data.numberOfChannels,
-                sampleRate: audio_data.sampleRate,
+                numberOfChannels: audio_buffer.numberOfChannels,
+                sampleRate: audio_buffer.sampleRate,
                 codec: "opus",
                 bitrate: 128000
             }
@@ -230,40 +229,49 @@ export class Encoder extends EventTarget {
             return Promise.resolve()
 
         return new Promise(async (resolve, reject) => {
-            const video = document.createElement("video")
+            const audio_context = new AudioContext()
+            const audio_buffer = await audio_context.decodeAudioData(await (await fetch(this.#url)).arrayBuffer())
+            const source = audio_context.createBufferSource()
+            const media_stream_destination = audio_context.createMediaStreamDestination()
+            const duration = audio_buffer.duration
 
-            video.src = this.#url
-            video.addEventListener("loadedmetadata", async () => {
-                const audio_encoder = new AudioEncoder({
-                    output: (chunk, metadata) => this.dispatchEvent(new AudioFrameEvent(chunk, metadata)),
-                    error: reject,
-                })
+            source.buffer = audio_buffer
+            source.connect(media_stream_destination)
+            source.start()
 
-                audio_encoder.configure(audio_config)
-
-                const audio_processor = new MediaStreamTrackProcessor(video.captureStream().getAudioTracks()[0])
-                const audio_reader = audio_processor.readable.getReader()
-
-                video.play()
-
-                while (true) {
-                    const result = await audio_reader.read()
-
-                    if (result.done)
-                        break
-
-                    const audio_data = result.value
-
-                    audio_encoder.encode(audio_data)
-                    audio_data.close()
-
-                    this.dispatchEvent(new EncodingProgress("audio", video.currentTime, video.duration))
-                }
-
-                audio_encoder.close()
-
-                resolve()
+            const audio_encoder = new AudioEncoder({
+                output: (chunk, metadata) => this.dispatchEvent(new AudioFrameEvent(chunk, metadata)),
+                error: reject,
             })
+
+            audio_encoder.configure(audio_config)
+
+            const audio_reader = new MediaStreamTrackProcessor(media_stream_destination.stream.getAudioTracks()[0]).readable.getReader()
+            let current_time = 0
+
+            while (true) {
+                const result = await audio_reader.read()
+
+                if (result.done)
+                    break
+
+                const audio_data = result.value
+
+                current_time += audio_data.duration / 1_000_000
+
+                audio_encoder.encode(audio_data)
+                audio_data.close()
+
+                this.dispatchEvent(new EncodingProgress("audio", current_time, duration))
+
+                if (Math.ceil(current_time * 100) == Math.floor(duration * 100))
+                    break
+            }
+
+            audio_encoder.close()
+            audio_context.close()
+
+            resolve()
         })
     }
 
