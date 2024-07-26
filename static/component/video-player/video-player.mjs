@@ -578,11 +578,9 @@ class VideoPlayerElement extends HTMLElement {
         const video = shadow.querySelector("video")
         const preview = shadow.querySelector("#video_player_preview")
         const updateSize = () => {
-            requestAnimationFrame(() => {
-                video.style.width = this.clientWidth + "px"
-                video.style.height = this.clientHeight + "px"
-                preview.style.maxHeight = preview.style.maxWidth = video.clientHeight * .25 + "px"
-            })
+            video.style.width = this.clientWidth + "px"
+            video.style.height = this.clientHeight + "px"
+            preview.style.maxHeight = preview.style.maxWidth = video.clientHeight * .25 + "px"
         }
         const resize_observer = new ResizeObserver(updateSize)
 
